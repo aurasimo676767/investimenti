@@ -1,15 +1,12 @@
 const STORE_KEY = 'forma-invest-v1';
+const SYNC_KEY = 'forma-invest-cloud-revision';
 const DEMO = {
-  demo: true,
+  demo: false,
   hidden: false,
-  prices: { IREN: 40.8, MSFT: 430, ASML: 790 },
-  watchlist: ['IREN', 'TSM'],
-  notes: { IREN: 'Seguo la crescita della capacità AI e il fabbisogno di capitale. Da rivedere dopo i prossimi risultati.', TSM: 'Osservare domanda di chip avanzati, investimenti e margini.' },
-  transactions: [
-    { id: 'demo-1', date: '2026-02-18', side: 'buy', ticker: 'IREN', name: 'IREN Limited', quantity: 46, price: 29.3, fees: 1 },
-    { id: 'demo-2', date: '2026-01-13', side: 'buy', ticker: 'MSFT', name: 'Microsoft', quantity: 6, price: 390, fees: 1 },
-    { id: 'demo-3', date: '2026-03-09', side: 'buy', ticker: 'ASML', name: 'ASML Holding', quantity: 4, price: 720, fees: 1 }
-  ]
+  prices: {},
+  watchlist: [],
+  notes: {},
+  transactions: []
 };
 const COMPANIES = [
   { ticker: 'IREN', name: 'IREN Limited', exchange: 'NASDAQ', sector: 'Infrastruttura AI', group: 'Tecnologia', hue: 'rose', description: 'Data center, capacità di calcolo AI e attività legate al Bitcoin. Un caso da leggere insieme al suo fabbisogno di capitale.', url: 'https://iren.com/investor/annual-reports' },
@@ -54,14 +51,90 @@ const percentage = (value) => `${value >= 0 ? '+' : ''}${new Intl.NumberFormat('
 const money = (value, digits) => `<span class="${state.hidden ? 'hidden-value' : ''}">${euro(value, digits)}</span>`;
 const day = (date) => { const d = new Date(`${date}T12:00:00`); return Number.isNaN(d.getTime()) ? date : new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }).format(d); };
 const clone = value => JSON.parse(JSON.stringify(value));
-function loadState() { try { const raw = JSON.parse(localStorage.getItem(STORE_KEY)); if (raw && Array.isArray(raw.transactions)) return { ...clone(DEMO), ...raw }; } catch (_) {} return clone(DEMO); }
+function loadState() { try { const raw = JSON.parse(localStorage.getItem(STORE_KEY)); if (raw && Array.isArray(raw.transactions)) return raw.demo ? { ...clone(DEMO), hidden: !!raw.hidden } : { ...clone(DEMO), ...raw }; } catch (_) {} return clone(DEMO); }
 let state = loadState();
 let currentPage = 'overview';
 let discoverFilter = 'Tutte';
 let discoverSearch = '';
 let importData = null;
 let toastTimer;
-function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+let cloudRevision = localStorage.getItem(SYNC_KEY) || null;
+let cloudReady = false;
+let cloudDirty = false;
+let cloudBusy = false;
+let cloudConflict = null;
+let cloudTimer;
+let changeSerial = 0;
+let cloudMessage = 'Connessione all’archivio privato in corso…';
+function setCloudMessage(message) { cloudMessage = message; const el = $('#cloud-status'); if (el) el.textContent = message; }
+function save(sync = true) { if (sync) { state.updatedAt = Date.now(); changeSerial++; cloudDirty = true; } localStorage.setItem(STORE_KEY, JSON.stringify(state)); if (sync && cloudReady) { clearTimeout(cloudTimer); cloudTimer = setTimeout(cloudWrite, 800); } }
+function adoptCloud(remote, revision) {
+  state = { ...clone(DEMO), ...remote, demo: false };
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  cloudRevision = revision;
+  if (revision) localStorage.setItem(SYNC_KEY, revision); else localStorage.removeItem(SYNC_KEY);
+  cloudDirty = false;
+  cloudConflict = null;
+  setCloudMessage('Portafoglio sincronizzato su PC e telefono.');
+  render();
+  autoRefreshQuotes();
+}
+async function cloudPull() {
+  if (cloudBusy || cloudConflict || !window.location?.protocol?.startsWith('http')) return;
+  cloudBusy = true;
+  try {
+    const response = await fetch('/api/state', { cache: 'no-store' });
+    const data = await response.json();
+    if (!response.ok) { cloudReady = false; setCloudMessage(data.error || 'Sincronizzazione non disponibile.'); return; }
+    cloudReady = true;
+    if (!data.state) {
+      cloudRevision = null;
+      if (state.transactions.length || state.watchlist.length || Object.keys(state.notes).length) {
+        cloudDirty = true;
+        setCloudMessage('Caricamento del portafoglio nel cloud…');
+        setTimeout(cloudWrite, 0);
+      } else setCloudMessage('Archivio privato pronto. Importa i tuoi movimenti.');
+      return;
+    }
+    if (data.revision === cloudRevision) {
+      if ((Number(state.updatedAt) || 0) > (Number(data.state.updatedAt) || 0)) cloudDirty = true;
+      if (cloudDirty) setTimeout(cloudWrite, 0);
+      else if ((Number(state.updatedAt) || 0) < (Number(data.state.updatedAt) || 0)) adoptCloud(data.state, data.revision);
+      else setCloudMessage('Portafoglio sincronizzato su PC e telefono.');
+      return;
+    }
+    const localEmpty = !state.transactions.length && !state.watchlist.length && !Object.keys(state.notes).length;
+    const base = localStorage.getItem(SYNC_KEY);
+    if (localEmpty || (base && !cloudDirty && (Number(state.updatedAt) || 0) <= (Number(data.state.updatedAt) || 0))) {
+      adoptCloud(data.state, data.revision);
+      return;
+    }
+    cloudConflict = data;
+    cloudRevision = data.revision;
+    setCloudMessage('Ci sono dati diversi su questo dispositivo e nel cloud. Scegli quale copia usare.');
+    if (currentPage === 'settings') render();
+  } catch (_) {
+    cloudReady = false;
+    setCloudMessage('Connessione cloud non disponibile; i dati restano salvati su questo dispositivo.');
+  } finally { cloudBusy = false; }
+}
+async function cloudWrite() {
+  if (!cloudReady || cloudBusy || !cloudDirty || cloudConflict) return;
+  cloudBusy = true;
+  const sentSerial = changeSerial;
+  try {
+    const response = await fetch('/api/state', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ state, revision: cloudRevision }) });
+    const data = await response.json();
+    if (response.status === 409) { cloudReady = false; setCloudMessage('Modifiche presenti su un altro dispositivo. Apri Impostazioni per risolvere.'); setTimeout(cloudPull, 0); return; }
+    if (!response.ok) { setCloudMessage(data.error || 'Salvataggio cloud non riuscito.'); return; }
+    cloudRevision = data.revision;
+    if (cloudRevision) localStorage.setItem(SYNC_KEY, cloudRevision);
+    cloudDirty = sentSerial !== changeSerial;
+    if (cloudDirty) setTimeout(cloudWrite, 0);
+    else setCloudMessage('Portafoglio sincronizzato su PC e telefono.');
+  } catch (_) { setCloudMessage('Salvataggio cloud non riuscito; la copia locale è conservata.'); }
+  finally { cloudBusy = false; }
+}
 function toast(message) { const el = $('#toast'); el.textContent = message; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 3600); }
 function company(ticker, fallback = '') { return COMPANIES.find(c => c.ticker === ticker) || { ticker, name: fallback || ticker, exchange: 'Titolo personale', sector: 'Altro', group: 'Altro', hue: '', description: '', url: '' }; }
 function holdings() {
@@ -95,7 +168,7 @@ function renderNav() {
 }
 function demoBanner() { return state.demo ? `<div class="demo-banner"><span><strong>Anteprima</strong> · I numeri qui sotto sono illustrativi, non quotazioni aggiornate.</span><button type="button" data-action="clear-demo">Usa i miei dati</button></div>` : ''; }
 function pageHeading(kicker, title, subtitle, action = '') { return `<div class="page-heading"><div class="heading-copy"><p class="eyebrow">${kicker}</p><h1>${title}</h1><p>${subtitle}</p></div>${action}</div>`; }
-function holdingRow(h) { const c = company(h.ticker, h.name); return `<div class="holding-row"><div class="company-cell"><span class="ticker-logo ${c.hue}">${esc(h.ticker.slice(0, 3))}</span><span class="company-text"><strong>${esc(h.name)}</strong><small>${esc(h.ticker)} · ${amount(h.quantity)} azioni</small></span></div><span class="table-value">${money(h.value)}<small class="table-sub">${h.hasPrice ? `${money(h.current)} / azione` : 'Al costo · prezzo mancante'}</small></span><span class="table-value">${money(h.cost)}</span><span class="table-value ${h.pnl >= 0 ? 'gain' : 'loss'}">${h.hasPrice ? money(h.pnl) : '—'}<small class="table-sub">${h.hasPrice ? percentage(h.change) : 'Da aggiornare'}</small></span></div>`; }
+function holdingRow(h) { const c = company(h.ticker, h.name); const meta = state.quoteMeta?.[h.ticker]; const stamp = meta?.asOf ? new Date(meta.asOf * 1000).toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''; return `<div class="holding-row"><div class="company-cell"><span class="ticker-logo ${c.hue}">${esc(h.ticker.slice(0, 3))}</span><span class="company-text"><strong>${esc(h.name)}</strong><small>${esc(h.ticker)} · ${amount(h.quantity)} azioni</small></span></div><span class="table-value">${money(h.value)}<small class="table-sub">${h.hasPrice ? `${money(h.current)} / azione${stamp ? ` · Twelve Data ${esc(stamp)}` : ''}` : 'Al costo · prezzo mancante'}</small></span><span class="table-value">${money(h.cost)}</span><span class="table-value ${h.pnl >= 0 ? 'gain' : 'loss'}">${h.hasPrice ? money(h.pnl) : '—'}<small class="table-sub">${h.hasPrice ? percentage(h.change) : 'Da aggiornare'}</small></span></div>`; }
 function donutMarkup(rows, total) {
   if (!rows.length || !total) return `<div class="empty-state"><div class="empty-icon">${icon('chart')}</div><h3>Nessun titolo ancora</h3><p>Aggiungi il primo acquisto per vedere la composizione del portafoglio.</p></div>`;
   const colors = ['#2d695a', '#9fbea4', '#d1dcb0', '#e3eae0', '#b8cfbd', '#849f8c'];
@@ -110,10 +183,10 @@ function renderOverview() {
   const topShare = top && p.value ? top.value / p.value * 100 : 0;
   return `${pageHeading('Il tuo spazio investimenti', 'Una visione più chiara.', 'Segui quello che possiedi. Scopri quello che vale la pena studiare.', `<button class="text-button" data-nav="discover">Esplora aziende <span aria-hidden="true">↗</span></button>`)}${demoBanner()}
     <section class="dashboard-grid" aria-label="Riepilogo del portafoglio">
-      <div class="hero-card ${state.demo ? 'demo-hero' : ''}"><div class="hero-overline">Valore stimato del portafoglio</div><div class="hero-value">${money(p.value)}</div><div class="hero-sub"><strong>${percentage(pct)}</strong><span>${p.pnl >= 0 ? 'Guadagno' : 'Perdita'} non realizzato · ${money(Math.abs(p.pnl))}</span></div><div class="hero-bottom"><p>I valori si basano sui prezzi che inserisci. Controllali prima di prendere decisioni.</p><svg class="sparkline" viewBox="0 0 280 83" aria-hidden="true"><defs><linearGradient id="sparkFade" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#b8dbb0" stop-opacity=".2"/><stop offset="1" stop-color="#b8dbb0" stop-opacity="0"/></linearGradient></defs><path class="fill" d="M0 65 C25 58 37 69 58 51 S88 58 108 39 S143 48 161 37 S190 46 207 25 S248 34 280 8 L280 83 L0 83Z"/><path class="line" d="M0 65 C25 58 37 69 58 51 S88 58 108 39 S143 48 161 37 S190 46 207 25 S248 34 280 8"/></svg></div></div>
+      <div class="hero-card ${state.demo ? 'demo-hero' : ''}"><div class="hero-overline">Valore stimato del portafoglio</div><div class="hero-value">${money(p.value)}</div><div class="hero-sub"><strong>${percentage(pct)}</strong><span>${p.pnl >= 0 ? 'Guadagno' : 'Perdita'} non realizzato · ${money(Math.abs(p.pnl))}</span></div><div class="hero-bottom"><p>I valori usano i prezzi inseriti o ottenuti da Twelve Data. Controllali prima di prendere decisioni.</p></div></div>
       <div class="metric-stack"><div class="panel metric-card"><div class="metric-title"><span>Capitale investito</span><span class="metric-icon">${icon('wallet')}</span></div><div><div class="metric-number">${money(p.invested)}</div><div class="metric-detail">Costo delle posizioni aperte</div></div></div><div class="panel metric-card"><div class="metric-title"><span>Titoli in portafoglio</span><span class="metric-icon">${icon('trend')}</span></div><div><div class="metric-number">${p.rows.length}</div><div class="metric-detail">${p.rows.length ? `${esc(top.ticker)} è la posizione maggiore` : 'Aggiungi il primo movimento'}</div></div></div></div>
     </section>
-    <div class="section-head"><div><h2>Le tue posizioni</h2><p>Prezzi aggiornati manualmente</p></div><button class="text-button" data-action="update-prices">Aggiorna prezzi <span aria-hidden="true">↗</span></button></div>
+    <div class="section-head"><div><h2>Le tue posizioni</h2><p>Prezzi e orari da controllare</p></div><button class="text-button" data-action="update-prices">Aggiorna prezzi <span aria-hidden="true">↗</span></button></div>
     <section class="overview-lower"><div class="panel holdings-panel">${p.rows.length ? `<div class="table-header"><span>Azienda</span><span>Valore</span><span>Investito</span><span>Risultato</span></div>${p.rows.map(holdingRow).join('')}` : `<div class="empty-state"><div class="empty-icon">${icon('wallet')}</div><h3>Il portafoglio parte da qui</h3><p>Inserisci un acquisto o importa un CSV per iniziare.</p><button class="button-primary" data-action="add">Aggiungi movimento</button></div>`}</div><div class="panel allocation-panel"><h3>Composizione</h3><p>Il peso di ogni titolo nel tuo portafoglio</p>${donutMarkup(p.rows, p.value)}</div></section>
     ${topShare > 45 ? `<div class="insight-strip">${icon('info')}<div><strong>${esc(top.ticker)} pesa il ${Math.round(topShare)}% del portafoglio</strong><p>Una posizione concentrata può influenzare molto il risultato complessivo. Tienila presente quando valuti nuove aziende.</p></div></div>` : ''}
     <p class="footnote">Forma è uno strumento personale di organizzazione e ricerca. I prezzi sono inseriti da te; i calcoli non includono imposte, cambio valuta e risultati già realizzati.</p>`;
@@ -138,8 +211,12 @@ function quoteSettings() {
   }).join('');
   return `<section class="panel settings-card quote-card"><h2>Quotazioni Twelve Data</h2><p>Associa ogni ISIN al simbolo usato da Twelve Data. I prezzi in USD vengono convertiti in EUR con il cambio del momento.</p>${rows.length && !state.demo ? `<form id="quote-form"><div class="quote-fields">${fields}</div><p class="form-hint">Puoi lasciare vuoti gli strumenti che vuoi aggiornare manualmente. Massimo 7 simboli per aggiornamento; il piano gratuito può avere limiti di mercato.</p><div id="quote-status" class="form-hint" role="status"></div><div class="form-actions"><button type="submit" class="button-primary">Salva e aggiorna prezzi</button></div></form>` : '<p class="form-hint">Importa prima i movimenti per collegare le tue posizioni.</p>'}<p class="form-hint">Fonte: Twelve Data. Verifica sempre prezzo, valuta, sede di negoziazione e orario prima di usarli.</p></section>`;
 }
-function renderSettings() { return `${pageHeading('Gestione dei dati', 'Tutto sotto controllo.', 'I dati del portafoglio vengono salvati in questo browser. Esportali quando vuoi.')}
-    ${quoteSettings()}<div class="settings-layout"><section class="panel settings-card"><h2>Importa movimenti</h2><p>Carica un CSV dei tuoi acquisti e vendite. Potrai scegliere a quali colonne corrispondono ticker, quantità, prezzo e data prima di importare.</p><div class="upload-box">${icon('upload')}<strong>Scegli un file CSV</strong><p>Il file viene letto sul tuo dispositivo.</p><label class="button-primary" for="csv-file">Seleziona file</label><input id="csv-file" type="file" accept=".csv,text/csv,text/plain"></div><div class="source-note">Trade Republic: Profilo, Estratti conto, Esportazione transazioni. Il file viene riconosciuto automaticamente; vengono importati solo acquisti e vendite di azioni e fondi. In alternativa puoi creare un CSV semplice: data, tipo, ticker, nome, quantità, prezzo, commissioni.</div></section>
+function cloudCard() {
+  const conflictActions = cloudConflict ? `<div class="form-actions"><button type="button" class="button-secondary" data-action="cloud-use-remote">Usa copia cloud</button><button type="button" class="button-primary" data-action="cloud-use-local">Usa copia di questo dispositivo</button></div>` : '';
+  return `<section class="panel settings-card quote-card"><h2>Sincronizzazione privata</h2><p>Collegando un archivio Blob privato al progetto Vercel, movimenti, note e prezzi si ritrovano su PC e telefono.</p><p id="cloud-status" class="form-hint" role="status">${esc(cloudMessage)}</p><button type="button" class="button-subtle" data-action="cloud-check">Controlla sincronizzazione</button>${conflictActions}</section>`;
+}
+function renderSettings() { return `${pageHeading('Gestione dei dati', 'Tutto sotto controllo.', 'I dati restano in questo browser e si sincronizzano quando l’archivio privato è collegato.')}
+    ${cloudCard()}${quoteSettings()}<div class="settings-layout"><section class="panel settings-card"><h2>Importa movimenti</h2><p>Carica un CSV dei tuoi acquisti e vendite. Potrai scegliere a quali colonne corrispondono ticker, quantità, prezzo e data prima di importare.</p><div class="upload-box">${icon('upload')}<strong>Scegli un file CSV</strong><p>Il file viene letto sul tuo dispositivo.</p><label class="button-primary" for="csv-file">Seleziona file</label><input id="csv-file" type="file" accept=".csv,text/csv,text/plain"></div><div class="source-note">Trade Republic: Profilo, Estratti conto, Esportazione transazioni. Il file viene riconosciuto automaticamente; vengono importati solo acquisti e vendite di azioni e fondi. In alternativa puoi creare un CSV semplice: data, tipo, ticker, nome, quantità, prezzo, commissioni.</div></section>
     <section class="panel settings-card"><h2>I tuoi dati</h2><p>Scarica una copia per conservarla o spostarla su un altro dispositivo.</p><div class="setting-row"><div><strong>Esporta backup</strong><span>Movimenti, prezzi e watchlist in un file JSON</span></div><button class="button-subtle" data-action="export">Scarica</button></div><div class="setting-row"><div><strong>Ripristina backup</strong><span>Importa un file JSON esportato da Forma</span></div><div><label class="button-subtle" for="json-file" style="cursor:pointer">Scegli file</label><input id="json-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-row"><div><strong>Cancella tutti i dati</strong><span>Rimuove i dati salvati su questo browser</span></div><button class="danger-button" data-action="reset">Cancella</button></div><div class="feature-note">Il sito non chiede password Trade Republic. Un backup JSON può contenere informazioni finanziarie personali: conservalo con cura.</div></section></div>`; }
 function render() { renderNav(); const pages = { overview: renderOverview, discover: renderDiscover, watchlist: renderWatchlist, transactions: renderTransactions, settings: renderSettings }; const missing = !state.demo && currentPage === 'overview' ? holdings().filter(h => !h.hasPrice).length : 0; const warning = missing ? `<div class="demo-banner"><span><strong>Prezzi mancanti</strong> · ${missing} ${missing === 1 ? 'posizione è mostrata' : 'posizioni sono mostrate'} al costo, non al valore di mercato. Il rendimento è incompleto.</span><button type="button" data-action="update-prices">Inserisci prezzi</button></div>` : ''; $('#main-content').innerHTML = `<div class="page-enter">${warning}${pages[currentPage]()}</div>`; document.title = `${NAV.find(n => n.id === currentPage)?.label} — Forma`; }
 function go(page) { if (!NAV.some(n => n.id === page)) return; currentPage = page; window.scrollTo({ top: 0, behavior: 'smooth' }); render(); }
@@ -148,7 +225,7 @@ function closeModal() { $('#modal-root').innerHTML = ''; importData = null; }
 function resetDemo() { state = { ...clone(DEMO), demo: false, transactions: [], prices: {}, watchlist: [], notes: {}, hidden: state.hidden }; save(); render(); toast('Ora puoi inserire i tuoi dati.'); }
 function ensureRealData() { if (state.demo) { state.demo = false; state.transactions = []; state.prices = {}; state.watchlist = []; state.notes = {}; } }
 function addModal() { modal('Aggiungi un movimento', 'Registra un acquisto o una vendita.', `<form id="trade-form"><div class="form-grid"><div class="form-field"><label for="trade-side">Operazione</label><select id="trade-side" name="side"><option value="buy">Acquisto</option><option value="sell">Vendita</option></select></div><div class="form-field"><label for="trade-date">Data</label><input id="trade-date" name="date" type="date" required value="${new Date().toISOString().slice(0, 10)}"></div><div class="form-field"><label for="trade-ticker">Ticker</label><input id="trade-ticker" name="ticker" placeholder="es. IREN" maxlength="16" required autocomplete="off"></div><div class="form-field"><label for="trade-name">Nome azienda</label><input id="trade-name" name="name" placeholder="es. IREN Limited" maxlength="100" autocomplete="off"></div><div class="form-field"><label for="trade-quantity">Quantità</label><input id="trade-quantity" name="quantity" type="number" min="0.000001" step="any" required placeholder="0"></div><div class="form-field"><label for="trade-price">Prezzo per azione (€)</label><input id="trade-price" name="price" type="number" min="0.000001" step="any" required placeholder="0,00"></div><div class="form-field full"><label for="trade-fees">Commissioni (€)</label><input id="trade-fees" name="fees" type="number" min="0" step="any" value="0"></div></div><p class="form-hint">Inserisci i prezzi in euro, come nei movimenti del broker. Il valore corrente potrà essere aggiornato separatamente.</p><div class="form-actions"><button type="button" class="button-secondary" data-close>Annulla</button><button type="submit" class="button-primary">Salva movimento</button></div></form>`); }
-function priceModal() { const rows = holdings(); if (!rows.length) { toast('Aggiungi prima un movimento.'); return; } modal('Aggiorna prezzi', 'Inserisci l’ultimo prezzo che vuoi usare per ciascun titolo.', `<form id="price-form"><div class="form-grid">${rows.map(h => `<div class="form-field"><label for="price-${esc(h.ticker)}">${esc(h.ticker)} · prezzo in €</label><input id="price-${esc(h.ticker)}" name="${esc(h.ticker)}" type="number" min="0.000001" step="any" required value="${h.current}"></div>`).join('')}</div><p class="form-hint">I prezzi non si aggiornano automaticamente. Data e fonte della quotazione vanno controllate nel tuo broker.</p><div class="form-actions"><button type="button" class="button-secondary" data-close>Annulla</button><button type="submit" class="button-primary">Salva prezzi</button></div></form>`); }
+function priceModal() { const rows = holdings(); if (!rows.length) { toast('Aggiungi prima un movimento.'); return; } modal('Aggiorna prezzi', 'Inserisci l’ultimo prezzo che vuoi usare per ciascun titolo.', `<form id="price-form"><div class="form-grid">${rows.map(h => `<div class="form-field"><label for="price-${esc(h.ticker)}">${esc(h.ticker)} · prezzo in €</label><input id="price-${esc(h.ticker)}" name="${esc(h.ticker)}" type="number" min="0.000001" step="any" required value="${h.current}"></div>`).join('')}</div><p class="form-hint">I prezzi collegati a Twelve Data si aggiornano automaticamente. Data e fonte della quotazione vanno controllate nel tuo broker.</p><div class="form-actions"><button type="button" class="button-secondary" data-close>Annulla</button><button type="submit" class="button-primary">Salva prezzi</button></div></form>`); }
 function noteModal(ticker) { const c = company(ticker); modal(`Nota su ${esc(c.name)}`, 'Scrivi la tua tesi e cosa potrebbe cambiarla.', `<form id="note-form" data-ticker="${esc(ticker)}"><div class="form-field"><label for="note-text">La tua nota</label><textarea id="note-text" name="note" maxlength="1500" placeholder="Perché la seguo? Cosa devo verificare?">${esc(state.notes[ticker] || '')}</textarea></div><div class="form-actions"><button type="button" class="button-secondary" data-close>Annulla</button><button type="submit" class="button-primary">Salva nota</button></div></form>`); }
 function csvRows(text) {
   const first = text.split(/\r?\n/).find(x => x.trim()) || '';
@@ -165,7 +242,7 @@ function showTradeRepublicImport(rows, filename) {
   const parsed = window.TradeRepublicImport.parseTradeRepublicRows(rows);
   importData = { kind: 'trade-republic', ...parsed };
   const errorText = parsed.errors.length ? `<div class="import-result" role="alert">${parsed.errors.length} righe da controllare: ${esc(parsed.errors.slice(0, 4).join('; '))}. Non importerò dati parziali.</div>` : '';
-  modal('Importa Trade Republic', `${esc(filename)} · file riconosciuto`, `<form id="tr-import-form"><div class="import-summary"><strong>${parsed.transactions.length} operazioni su titoli e fondi</strong><span>${parsed.skippedCash} movimenti di cassa esclusi</span></div><p class="form-hint">Il file viene letto solo nel browser. Gli strumenti sono identificati con il loro ISIN. I prezzi di mercato andranno inseriti dopo l’importazione; finché mancano, le posizioni sono mostrate al costo.</p>${errorText}<label class="import-replace"><input type="checkbox" name="replace"> Sostituisci i movimenti già presenti in Forma</label><div class="form-actions"><button type="button" class="button-secondary" data-close>Annulla</button><button type="submit" class="button-primary" ${parsed.errors.length || !parsed.transactions.length ? 'disabled' : ''}>Importa ${parsed.transactions.length} operazioni</button></div></form>`, true);
+  modal('Importa Trade Republic', `${esc(filename)} · file riconosciuto`, `<form id="tr-import-form"><div class="import-summary"><strong>${parsed.transactions.length} operazioni su titoli e fondi</strong><span>${parsed.skippedCash} movimenti di cassa esclusi</span></div><p class="form-hint">Il file viene letto solo nel browser. Gli strumenti sono identificati con il loro ISIN. Dopo l’importazione puoi collegare Twelve Data o inserire i prezzi; finché mancano, le posizioni sono mostrate al costo.</p>${errorText}<label class="import-replace"><input type="checkbox" name="replace"> Sostituisci i movimenti già presenti in Forma</label><div class="form-actions"><button type="button" class="button-secondary" data-close>Annulla</button><button type="submit" class="button-primary" ${parsed.errors.length || !parsed.transactions.length ? 'disabled' : ''}>Importa ${parsed.transactions.length} operazioni</button></div></form>`, true);
 }
 function showImportMapping(rows, filename) {
   if (rows.length < 2) { toast('Il CSV non contiene righe di dati.'); return; }
@@ -177,7 +254,7 @@ function showImportMapping(rows, filename) {
 }
 function normalizeDate(raw) { const value = String(raw || '').trim(); if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10); const m = value.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})/); return m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : ''; }
 function normalizeSide(raw) { const value = String(raw || '').toLowerCase(); if (/buy|acquist|kauf|purchase|sparplan|investment/.test(value)) return 'buy'; if (/sell|vendit|verkauf|sale/.test(value)) return 'sell'; return ''; }
-async function refreshQuotes(entries) {
+async function refreshQuotes(entries, quiet = false) {
   const status = $('#quote-status');
   const button = $('#quote-form button[type="submit"]');
   if (status) status.textContent = 'Aggiornamento in corso…';
@@ -198,15 +275,31 @@ async function refreshQuotes(entries) {
         exchange: quote.exchange, fxRate: quote.fxRate, asOf: quote.asOf, fetchedAt: data.fetchedAt };
       updated++;
     }
-    save(); render();
+    save(!quiet); render();
     const message = `${updated} ${updated === 1 ? 'prezzo aggiornato' : 'prezzi aggiornati'}${data.errors?.length ? `. ${data.errors.join('; ')}` : '.'}`;
-    $('#quote-status').textContent = message;
-    toast(message);
+    if ($('#quote-status')) $('#quote-status').textContent = message;
+    if (!quiet) toast(message);
+    return true;
   } catch (error) {
     if (status) status.textContent = error.message || 'Impossibile aggiornare le quotazioni.';
+    return false;
   } finally {
     if (button && button.isConnected) button.disabled = false;
   }
+}
+let autoQuoteBusy = false;
+let lastAutoQuoteAttempt = 0;
+async function autoRefreshQuotes() {
+  if (document.hidden || autoQuoteBusy || state.demo) return;
+  const entries = holdings().map(h => [h.ticker, state.symbols?.[h.ticker]]).filter(([, symbol]) => symbol);
+  if (!entries.length || new Set(entries.map(([, symbol]) => symbol)).size > 7) return;
+  const now = Date.now();
+  if (now - lastAutoQuoteAttempt < 60_000) return;
+  const stale = entries.some(([isin]) => now - Date.parse(state.quoteMeta?.[isin]?.fetchedAt || '') > 20 * 60_000 || !state.quoteMeta?.[isin]?.fetchedAt);
+  if (!stale) return;
+  autoQuoteBusy = true;
+  lastAutoQuoteAttempt = now;
+  try { await refreshQuotes(entries, true); } finally { autoQuoteBusy = false; }
 }
 function download(name, data, type) { const blob = new Blob([data], { type }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 document.addEventListener('click', event => {
@@ -221,8 +314,21 @@ document.addEventListener('click', event => {
   else if (action === 'add') addModal();
   else if (action === 'update-prices') priceModal();
   else if (action === 'import') importModal();
+  else if (action === 'cloud-check') cloudPull();
+  else if (action === 'cloud-use-remote' && cloudConflict) {
+    if (!confirm('Sostituire i dati su questo dispositivo con la copia cloud?')) return;
+    localStorage.setItem('forma-invest-conflict-backup', JSON.stringify(state));
+    adoptCloud(cloudConflict.state, cloudConflict.revision);
+  }
+  else if (action === 'cloud-use-local' && cloudConflict) {
+    if (!confirm('Sostituire la copia cloud con i dati di questo dispositivo?')) return;
+    localStorage.setItem('forma-invest-conflict-backup', JSON.stringify(cloudConflict.state));
+    cloudConflict = null; cloudReady = true; cloudDirty = true;
+    cloudWrite();
+    render();
+  }
   else if (action === 'export') { download(`forma-backup-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2), 'application/json'); toast('Backup scaricato.'); }
-  else if (action === 'reset') { if (confirm('Cancellare tutti i dati di Forma su questo browser?')) { state = { ...clone(DEMO), demo: false, transactions: [], prices: {}, watchlist: [], notes: {} }; save(); go('overview'); toast('Dati cancellati.'); } }
+  else if (action === 'reset') { if (confirm('Cancellare tutti i dati di Forma su questo browser e nel cloud, se collegato?')) { state = { ...clone(DEMO), demo: false, transactions: [], prices: {}, watchlist: [], notes: {} }; save(); go('overview'); toast('Dati cancellati.'); } }
 });
 $('#open-add').addEventListener('click', addModal);
 $('#privacy-toggle').addEventListener('click', () => { state.hidden = !state.hidden; save(); render(); });
@@ -276,3 +382,7 @@ document.addEventListener('change', async event => {
 });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
 render();
+cloudPull().then(autoRefreshQuotes);
+setInterval(autoRefreshQuotes, 60_000);
+setInterval(cloudPull, 60_000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { cloudPull().then(autoRefreshQuotes); } });

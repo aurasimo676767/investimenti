@@ -12,20 +12,17 @@ const element = key => {
 const storage = new Map();
 const context = vm.createContext({
   console, Intl, Date, Number, String, Map, JSON, Math, crypto: require('crypto').webcrypto,
-  setTimeout, clearTimeout,
-  localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
+  setTimeout, clearTimeout, setInterval() {},
+  localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
   document: { querySelector: element, addEventListener() {} },
   window: { scrollTo() {} }
 });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8'), context);
 const run = code => vm.runInContext(code, context);
 
-assert.strictEqual(run('portfolio().rows.length'), 3);
-assert.strictEqual(run('portfolio().rows[0].ticker'), 'ASML');
-assert.ok(element('#main-content').innerHTML.includes('Anteprima'));
-run('resetDemo()');
 assert.strictEqual(run('portfolio().rows.length'), 0);
-assert.ok(!element('#main-content').innerHTML.includes('class="sparkline"') || !element('#main-content').innerHTML.includes('demo-hero'));
+assert.ok(!element('#main-content').innerHTML.includes('Anteprima'));
+assert.ok(!element('#main-content').innerHTML.includes('class="sparkline"'));
 run('state.transactions.push({ id:"a", date:"2026-01-01", side:"buy", ticker:"IREN", name:"IREN Limited", quantity:10, price:20, fees:1 }); state.prices.IREN=25;');
 assert.strictEqual(run('portfolio().value'), 250);
 assert.strictEqual(run('portfolio().invested'), 201);

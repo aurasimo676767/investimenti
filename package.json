@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build.cjs",
-    "check": "node --check app.js && node scripts/logic.cjs"
+    "check": "node --check app.js && node --check api/quotes.js && node --check api/state.js && node scripts/logic.cjs"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.0"
   }
 }
