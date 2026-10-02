@@ -1,6 +1,6 @@
 # Forma
 
-Un sito privato e responsive per organizzare un portafoglio di azioni, seguire aziende e importare movimenti da un CSV.
+Un sito responsive per organizzare un portafoglio di azioni, seguire aziende e importare movimenti da un CSV. I dati personali restano nel browser in cui vengono inseriti.
 
 ## Avvio locale
 
@@ -17,4 +17,8 @@ Apri `index.html` in un browser moderno. Non servono dipendenze o un server per 
 
 ## Sviluppo
 
-`node --check app.js` controlla la sintassi. `node scripts/logic.cjs` verifica calcoli e importazione. `npm run build` prepara il pacchetto statico per Sites. `node scripts/smoke.cjs` esegue una verifica browser su desktop e telefono usando il Playwright già presente nel workspace.
+`node --check app.js` controlla la sintassi. `node scripts/logic.cjs` verifica calcoli e importazione. `npm run build` prepara il pacchetto statico per Vercel (cartella `dist`). `node scripts/smoke.cjs` esegue una verifica browser su desktop e telefono usando il Playwright già presente nel workspace.
+
+## Pubblicazione
+
+Vercel pubblica automaticamente i commit inviati a `main` dal repository GitHub collegato. Il sito distribuito contiene dati dimostrativi; movimenti, prezzi e note reali restano nel `localStorage` del dispositivo. Per limitare anche l'accesso alla pagina occorre attivare la protezione del deployment nelle impostazioni del progetto Vercel.
