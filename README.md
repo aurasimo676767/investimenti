@@ -12,8 +12,8 @@ Apri `index.html` in un browser moderno. Non servono dipendenze o un server per 
 - **Usa i miei dati** svuota la demo.
 - Movimenti, prezzi, watchlist e note sono salvati in `localStorage` nel browser corrente.
 - In **Impostazioni** puoi esportare e ripristinare un backup JSON. Questo permette anche di portare i dati su un altro dispositivo.
-- Il CSV viene letto localmente; prima dell'importazione l'utente associa le colonne e vede un'anteprima. Le righe non riconosciute bloccano l'importazione.
-- I prezzi dei titoli sono inseriti manualmente. Non sono disponibili quotazioni in tempo reale né raccomandazioni di investimento.
+- Il CSV viene letto localmente. L'esportazione nativa di Trade Republic è riconosciuta automaticamente: vengono importati acquisti e vendite di azioni e fondi, mentre i movimenti di cassa vengono esclusi. Gli ID delle operazioni impediscono i duplicati nei successivi import. Per altri CSV resta disponibile l'abbinamento manuale delle colonne.
+- Trade Republic identifica gli strumenti con l'ISIN. I prezzi di mercato vanno inseriti manualmente: finché mancano, le posizioni sono mostrate al costo e il rendimento è incompleto. Non sono disponibili quotazioni in tempo reale né raccomandazioni di investimento.
 
 ## Sviluppo
 

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const assert = require('assert');
+const trImporter = require('../tr-import.js');
 
 const elements = new Map();
 const element = key => {
@@ -34,4 +35,16 @@ assert.strictEqual(run('normalizeSide("Acquisto")'), 'buy');
 assert.strictEqual(run('num("1.234,56")'), 1234.56);
 assert.strictEqual(run('csvRows')('data;tipo;ticker\n01/01/2026;Acquisto;IREN').length, 2);
 assert.strictEqual(run('esc("<script>")'), '&lt;script&gt;');
+const trHeaders = ['datetime', 'date', 'category', 'type', 'asset_class', 'name', 'symbol', 'shares', 'price', 'fee', 'currency', 'transaction_id'];
+const trRows = [trHeaders,
+  ['2026-01-01T10:00:00Z', '2026-01-01', 'CASH', 'TRANSFER_INBOUND', '', '', '', '', '', '', 'EUR', 'cash-1'],
+  ['2026-01-02T10:00:00Z', '2026-01-02', 'TRADING', 'BUY', 'STOCK', 'Example', 'US0000000001', '2.5', '10', '-1', 'EUR', 'buy-1'],
+  ['2026-01-03T10:00:00Z', '2026-01-03', 'TRADING', 'SELL', 'STOCK', 'Example', 'US0000000001', '-1', '12', '-1', 'EUR', 'sell-1']];
+const parsedTr = trImporter.parseTradeRepublicRows(trRows);
+assert.strictEqual(parsedTr.skippedCash, 1);
+assert.strictEqual(parsedTr.transactions.length, 2);
+assert.strictEqual(parsedTr.transactions[1].quantity, 1);
+assert.strictEqual(parsedTr.transactions[1].fees, 1);
+assert.strictEqual(parsedTr.errors.length, 0);
+assert.strictEqual(trImporter.parseTradeRepublicRows([trHeaders, [...trRows[2].slice(0, 7), '-2.5', ...trRows[2].slice(8)]]).errors.length, 1);
 console.log('Logic checks passed: rendering, holdings, CSV parsing, escaping.');
