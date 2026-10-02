@@ -128,8 +128,18 @@ function watchCard(c) { return `<article class="panel watch-card"><span class="t
 function renderWatchlist() { const rows = state.watchlist.map(t => company(t)); return `${pageHeading('La tua lista', 'Aziende da seguire.', 'Salva le idee, scrivi la tua tesi e torna a leggerla quando cambiano i fatti.', `<button class="text-button" data-nav="discover">Trova aziende <span aria-hidden="true">↗</span></button>`)}${rows.length ? `<div class="watchlist-grid">${rows.map(watchCard).join('')}</div>` : `<div class="panel empty-state"><div class="empty-icon">${icon('bookmark')}</div><h3>La watchlist è vuota</h3><p>Esplora le aziende e salva quelle che vuoi studiare.</p><button class="button-primary" data-nav="discover">Scopri aziende</button></div>`}`; }
 function transactionRow(t) { return `<div class="transaction-row"><div class="company-cell"><span class="ticker-logo ${company(t.ticker).hue}">${esc(t.ticker.slice(0, 3))}</span><span class="company-text"><strong>${esc(t.name || t.ticker)}</strong><small>${esc(t.ticker)} · ${day(t.date)}</small></span></div><span><span class="type-pill ${t.side === 'sell' ? 'sell' : ''}">${t.side === 'sell' ? 'Vendita' : 'Acquisto'}</span></span><span>${amount(t.quantity)}<small>azioni</small></span><span>${money(t.price)}<small>per azione</small></span><button type="button" class="delete-button" data-delete="${esc(t.id)}" aria-label="Elimina movimento ${esc(t.ticker)} del ${day(t.date)}">${icon('trash')}</button></div>`; }
 function renderTransactions() { const rows = [...state.transactions].sort((a, b) => b.date.localeCompare(a.date)); return `${pageHeading('Registro personale', 'Ogni movimento, in ordine.', 'Acquisti e vendite che compongono il tuo portafoglio.', `<button class="text-button" data-action="import">Importa CSV <span aria-hidden="true">↗</span></button>`)}${demoBanner()}<div class="panel transactions-panel">${rows.length ? `<div class="transactions-heading"><span>Titolo</span><span>Operazione</span><span>Quantità</span><span>Prezzo</span><span></span></div>${rows.map(transactionRow).join('')}` : `<div class="empty-state"><div class="empty-icon">${icon('activity')}</div><h3>Nessun movimento</h3><p>Aggiungi una transazione oppure importa un file CSV.</p><button class="button-primary" data-action="add">Aggiungi movimento</button></div>`}</div><p class="footnote">Il rendimento mostrato nell'app riguarda solo le posizioni ancora aperte. Per un rendiconto fiscale o contabile usa i documenti ufficiali del broker.</p>`; }
+function quoteSettings() {
+  const rows = holdings();
+  const fields = rows.map(h => {
+    const symbol = state.symbols?.[h.ticker] || (/^[A-Z]{2}[A-Z0-9]{10}$/.test(h.ticker) ? '' : h.ticker);
+    const stamp = state.quoteMeta?.[h.ticker];
+    const quoteTime = stamp?.asOf ? new Date(stamp.asOf * 1000).toLocaleString('it-IT') : '';
+    return `<div class="quote-field"><label for="symbol-${esc(h.ticker)}"><strong>${esc(h.name)}</strong><small>${esc(h.ticker)}${quoteTime ? ` · quotazione ${esc(quoteTime)}` : ''}</small></label><input id="symbol-${esc(h.ticker)}" name="${esc(h.ticker)}" value="${esc(symbol)}" placeholder="Simbolo, es. IREN" maxlength="20" autocomplete="off" spellcheck="false"></div>`;
+  }).join('');
+  return `<section class="panel settings-card quote-card"><h2>Quotazioni Twelve Data</h2><p>Associa ogni ISIN al simbolo usato da Twelve Data. I prezzi in USD vengono convertiti in EUR con il cambio del momento.</p>${rows.length && !state.demo ? `<form id="quote-form"><div class="quote-fields">${fields}</div><p class="form-hint">Puoi lasciare vuoti gli strumenti che vuoi aggiornare manualmente. Massimo 7 simboli per aggiornamento; il piano gratuito può avere limiti di mercato.</p><div id="quote-status" class="form-hint" role="status"></div><div class="form-actions"><button type="submit" class="button-primary">Salva e aggiorna prezzi</button></div></form>` : '<p class="form-hint">Importa prima i movimenti per collegare le tue posizioni.</p>'}<p class="form-hint">Fonte: Twelve Data. Verifica sempre prezzo, valuta, sede di negoziazione e orario prima di usarli.</p></section>`;
+}
 function renderSettings() { return `${pageHeading('Gestione dei dati', 'Tutto sotto controllo.', 'I dati del portafoglio vengono salvati in questo browser. Esportali quando vuoi.')}
-    <div class="settings-layout"><section class="panel settings-card"><h2>Importa movimenti</h2><p>Carica un CSV dei tuoi acquisti e vendite. Potrai scegliere a quali colonne corrispondono ticker, quantità, prezzo e data prima di importare.</p><div class="upload-box">${icon('upload')}<strong>Scegli un file CSV</strong><p>Il file viene letto sul tuo dispositivo.</p><label class="button-primary" for="csv-file">Seleziona file</label><input id="csv-file" type="file" accept=".csv,text/csv,text/plain"></div><div class="source-note">Trade Republic: Profilo, Estratti conto, Esportazione transazioni. Il file viene riconosciuto automaticamente; vengono importati solo acquisti e vendite di azioni e fondi. In alternativa puoi creare un CSV semplice: data, tipo, ticker, nome, quantità, prezzo, commissioni.</div></section>
+    ${quoteSettings()}<div class="settings-layout"><section class="panel settings-card"><h2>Importa movimenti</h2><p>Carica un CSV dei tuoi acquisti e vendite. Potrai scegliere a quali colonne corrispondono ticker, quantità, prezzo e data prima di importare.</p><div class="upload-box">${icon('upload')}<strong>Scegli un file CSV</strong><p>Il file viene letto sul tuo dispositivo.</p><label class="button-primary" for="csv-file">Seleziona file</label><input id="csv-file" type="file" accept=".csv,text/csv,text/plain"></div><div class="source-note">Trade Republic: Profilo, Estratti conto, Esportazione transazioni. Il file viene riconosciuto automaticamente; vengono importati solo acquisti e vendite di azioni e fondi. In alternativa puoi creare un CSV semplice: data, tipo, ticker, nome, quantità, prezzo, commissioni.</div></section>
     <section class="panel settings-card"><h2>I tuoi dati</h2><p>Scarica una copia per conservarla o spostarla su un altro dispositivo.</p><div class="setting-row"><div><strong>Esporta backup</strong><span>Movimenti, prezzi e watchlist in un file JSON</span></div><button class="button-subtle" data-action="export">Scarica</button></div><div class="setting-row"><div><strong>Ripristina backup</strong><span>Importa un file JSON esportato da Forma</span></div><div><label class="button-subtle" for="json-file" style="cursor:pointer">Scegli file</label><input id="json-file" type="file" accept=".json,application/json" hidden></div></div><div class="setting-row"><div><strong>Cancella tutti i dati</strong><span>Rimuove i dati salvati su questo browser</span></div><button class="danger-button" data-action="reset">Cancella</button></div><div class="feature-note">Il sito non chiede password Trade Republic. Un backup JSON può contenere informazioni finanziarie personali: conservalo con cura.</div></section></div>`; }
 function render() { renderNav(); const pages = { overview: renderOverview, discover: renderDiscover, watchlist: renderWatchlist, transactions: renderTransactions, settings: renderSettings }; const missing = !state.demo && currentPage === 'overview' ? holdings().filter(h => !h.hasPrice).length : 0; const warning = missing ? `<div class="demo-banner"><span><strong>Prezzi mancanti</strong> · ${missing} ${missing === 1 ? 'posizione è mostrata' : 'posizioni sono mostrate'} al costo, non al valore di mercato. Il rendimento è incompleto.</span><button type="button" data-action="update-prices">Inserisci prezzi</button></div>` : ''; $('#main-content').innerHTML = `<div class="page-enter">${warning}${pages[currentPage]()}</div>`; document.title = `${NAV.find(n => n.id === currentPage)?.label} — Forma`; }
 function go(page) { if (!NAV.some(n => n.id === page)) return; currentPage = page; window.scrollTo({ top: 0, behavior: 'smooth' }); render(); }
@@ -167,6 +177,37 @@ function showImportMapping(rows, filename) {
 }
 function normalizeDate(raw) { const value = String(raw || '').trim(); if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10); const m = value.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})/); return m ? `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}` : ''; }
 function normalizeSide(raw) { const value = String(raw || '').toLowerCase(); if (/buy|acquist|kauf|purchase|sparplan|investment/.test(value)) return 'buy'; if (/sell|vendit|verkauf|sale/.test(value)) return 'sell'; return ''; }
+async function refreshQuotes(entries) {
+  const status = $('#quote-status');
+  const button = $('#quote-form button[type="submit"]');
+  if (status) status.textContent = 'Aggiornamento in corso…';
+  if (button) button.disabled = true;
+  try {
+    const symbols = [...new Set(entries.map(([, symbol]) => symbol))];
+    const response = await fetch(`/api/quotes?symbols=${encodeURIComponent(symbols.join(','))}`);
+    const data = await response.json();
+    if (!response.ok) throw Error(data.error || 'Quotazioni non disponibili.');
+    const quotes = new Map((data.quotes || []).map(q => [q.symbol, q]));
+    let updated = 0;
+    state.quoteMeta ||= {};
+    for (const [isin, symbol] of entries) {
+      const quote = quotes.get(symbol);
+      if (!quote || !Number.isFinite(quote.priceEur) || quote.priceEur <= 0) continue;
+      state.prices[isin] = quote.priceEur;
+      state.quoteMeta[isin] = { symbol, originalPrice: quote.price, currency: quote.currency,
+        exchange: quote.exchange, fxRate: quote.fxRate, asOf: quote.asOf, fetchedAt: data.fetchedAt };
+      updated++;
+    }
+    save(); render();
+    const message = `${updated} ${updated === 1 ? 'prezzo aggiornato' : 'prezzi aggiornati'}${data.errors?.length ? `. ${data.errors.join('; ')}` : '.'}`;
+    $('#quote-status').textContent = message;
+    toast(message);
+  } catch (error) {
+    if (status) status.textContent = error.message || 'Impossibile aggiornare le quotazioni.';
+  } finally {
+    if (button && button.isConnected) button.disabled = false;
+  }
+}
 function download(name, data, type) { const blob = new Blob([data], { type }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 document.addEventListener('click', event => {
   const nav = event.target.closest('[data-nav]'); if (nav) { go(nav.dataset.nav); return; }
@@ -187,8 +228,26 @@ $('#open-add').addEventListener('click', addModal);
 $('#privacy-toggle').addEventListener('click', () => { state.hidden = !state.hidden; save(); render(); });
 document.addEventListener('input', event => { if (event.target.id === 'company-search') { discoverSearch = event.target.value; const found = COMPANIES.filter(c => (discoverFilter === 'Tutte' || c.group === discoverFilter) && (`${c.ticker} ${c.name} ${c.sector}`.toLowerCase().includes(discoverSearch.toLowerCase()))); $('#company-results').innerHTML = found.length ? found.map(companyCard).join('') : `<div class="panel empty-state"><h3>Nessun risultato</h3><p>Prova un nome o un settore diverso.</p></div>`; } });
 document.addEventListener('submit', event => {
+  if (event.target.id === 'quote-form') {
+    event.preventDefault();
+    const entries = [...new FormData(event.target)].map(([isin, value]) => [isin, String(value).trim().toUpperCase()]).filter(([, symbol]) => symbol);
+    if (entries.some(([, symbol]) => !/^[A-Z0-9][A-Z0-9.:-]{0,19}$/.test(symbol))) { $('#quote-status').textContent = 'Controlla i simboli inseriti.'; return; }
+    if (new Set(entries.map(([, symbol]) => symbol)).size > 7) { $('#quote-status').textContent = 'Aggiorna al massimo 7 simboli per volta.'; return; }
+    const nextSymbols = Object.fromEntries(entries);
+    for (const isin of Object.keys(state.quoteMeta || {})) {
+      if (state.quoteMeta[isin].symbol !== nextSymbols[isin]) {
+        delete state.quoteMeta[isin];
+        delete state.prices[isin];
+      }
+    }
+    state.symbols = nextSymbols;
+    save();
+    if (!entries.length) { $('#quote-status').textContent = 'Inserisci almeno un simbolo da aggiornare.'; return; }
+    refreshQuotes(entries);
+    return;
+  }
   if (event.target.id === 'trade-form') { event.preventDefault(); const f = new FormData(event.target); const ticker = String(f.get('ticker') || '').trim().toUpperCase(); const quantity = Number(f.get('quantity')), price = Number(f.get('price')), fees = Number(f.get('fees') || 0); if (!ticker || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(price) || price <= 0 || fees < 0) { toast('Controlla ticker, quantità e prezzo.'); return; } const side = String(f.get('side')); if (side === 'sell') { const owned = state.demo ? 0 : holdings().find(h => h.ticker === ticker)?.quantity || 0; if (quantity > owned + 1e-9) { toast('La vendita supera la quantità in portafoglio.'); return; } } ensureRealData(); state.transactions.push({ id: crypto.randomUUID(), date: String(f.get('date')), side, ticker, name: String(f.get('name') || company(ticker).name).trim(), quantity, price, fees }); if (!state.prices[ticker]) state.prices[ticker] = price; save(); closeModal(); go('transactions'); toast('Movimento salvato.'); }
-  else if (event.target.id === 'price-form') { event.preventDefault(); const f = new FormData(event.target); for (const [key, value] of f) { const price = Number(value); if (!Number.isFinite(price) || price <= 0) { toast(`Controlla il prezzo di ${key}.`); return; } state.prices[key] = price; } save(); closeModal(); render(); toast('Prezzi aggiornati.'); }
+  else if (event.target.id === 'price-form') { event.preventDefault(); const f = new FormData(event.target); for (const [key, value] of f) { const price = Number(value); if (!Number.isFinite(price) || price <= 0) { toast(`Controlla il prezzo di ${key}.`); return; } state.prices[key] = price; if (state.quoteMeta) delete state.quoteMeta[key]; } save(); closeModal(); render(); toast('Prezzi aggiornati.'); }
   else if (event.target.id === 'note-form') { event.preventDefault(); const ticker = event.target.dataset.ticker; state.notes[ticker] = String(new FormData(event.target).get('note') || '').trim(); save(); closeModal(); render(); toast('Nota salvata.'); }
   else if (event.target.id === 'tr-import-form') {
     event.preventDefault();
@@ -197,7 +256,7 @@ document.addEventListener('submit', event => {
     if (replace && !confirm('Sostituire tutti i movimenti e i prezzi già salvati in questo browser?')) return;
     const skippedCash = importData.skippedCash;
     ensureRealData();
-    if (replace) { state.transactions = []; state.prices = {}; }
+    if (replace) { state.transactions = []; state.prices = {}; state.symbols = {}; state.quoteMeta = {}; }
     const existing = new Set(state.transactions.map(t => t.id));
     let added = 0;
     for (const trade of importData.transactions) {

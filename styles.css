@@ -27,3 +27,10 @@
   cursor: pointer;
 }
 .import-replace input { accent-color: #2d695a; }
+.quote-card { margin-bottom: 24px; }
+.quote-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin: 24px 0 14px; }
+.quote-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.quote-field label { display: flex; flex-direction: column; gap: 4px; }
+.quote-field small { color: #6d7970; font-size: 12px; overflow-wrap: anywhere; }
+.quote-field input { width: 100%; padding: 13px 14px; border: 1px solid #d9e1d8; border-radius: 10px; background: #fff; color: #263d31; font: inherit; text-transform: uppercase; }
+.quote-field input:focus { outline: 2px solid #679783; outline-offset: 2px; }
