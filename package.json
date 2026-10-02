@@ -1,0 +1,9 @@
+{
+  "name": "forma-invest",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.cjs",
+    "check": "node --check app.js && node scripts/logic.cjs"
+  }
+}

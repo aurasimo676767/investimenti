@@ -17,4 +17,4 @@ Apri `index.html` in un browser moderno. Non servono dipendenze o un server per 
 
 ## Sviluppo
 
-`node --check app.js` controlla la sintassi. `node scripts/smoke.cjs` esegue una verifica browser su desktop e telefono usando il Playwright già presente nel workspace.
+`node --check app.js` controlla la sintassi. `node scripts/logic.cjs` verifica calcoli e importazione. `npm run build` prepara il pacchetto statico per Sites. `node scripts/smoke.cjs` esegue una verifica browser su desktop e telefono usando il Playwright già presente nel workspace.
