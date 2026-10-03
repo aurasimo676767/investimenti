@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build.cjs",
-    "check": "node --check app.js && node --check experience.js && node --check ideas.js && node --check charts.js && node --check api/history.js && node --check catalogue.js && node --check api/catalogue.js && node --check api/instrument.js && node --check api/quotes.js && node --check api/state.js && node --check api/market.js && node scripts/logic.cjs && node scripts/research-check.cjs && node scripts/catalogue-check.cjs && node scripts/chart-check.cjs && node scripts/ui-check.cjs"
+    "check": "node --check app.js && node --check experience.js && node --check api/discovery.js && node --check ideas.js && node --check charts.js && node --check api/history.js && node --check catalogue.js && node --check api/catalogue.js && node --check api/instrument.js && node --check api/quotes.js && node --check api/state.js && node --check api/market.js && node scripts/logic.cjs && node scripts/research-check.cjs && node scripts/catalogue-check.cjs && node scripts/chart-check.cjs && node scripts/discovery-check.cjs && node scripts/ui-check.cjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

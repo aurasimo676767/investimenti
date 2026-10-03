@@ -30,7 +30,7 @@ function updateMarketViews() {
   if ($('#alert-results')) $('#alert-results').innerHTML = alertsMarkup(false);
 }
 async function fetchMarket(force = false) {
-  if (marketBusy || (currentPage === 'discover' && catalogueBusy) || document.hidden || !window.location?.protocol?.startsWith('http')) return;
+  if (currentPage === 'ideas' || marketBusy || (currentPage === 'discover' && catalogueBusy) || document.hidden || !window.location?.protocol?.startsWith('http')) return;
   const now = Date.now();
   if (now - marketLastAttempt < 65_000 || (!force && now < marketNext)) return;
   marketBusy = true; marketLastAttempt = now; marketError = ''; updateMarketViews();
