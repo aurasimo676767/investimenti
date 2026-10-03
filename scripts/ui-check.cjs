@@ -29,7 +29,7 @@ const catalogAssets = [
   { key: 'MSFT::XNYS', symbol: 'MSFT', name: 'Microsoft', kind: 'stocks', exchange: 'NYSE', mic: 'XNYS', country: 'United States', currency: 'USD', plan: 'Grow', trackable: true }
 ];
 w.fetch = async (url, options) => {
-  if(String(url).includes('/api/discovery'))return{ok:true,json:async()=>({rows:fixtureRows.map(r=>({...r})).concat([{...fixtureRows[1],symbol:'NEWCO::XNGS',price:15,asset:{key:'NEWCO::XNGS',symbol:'NEWCO',name:'Outside Radar Company',exchange:'NASDAQ',mic:'XNGS',country:'United States',currency:'USD',kind:'stocks'}}]),analyzed:150,catalogRead:400,catalogTotal:10000,retryAfter:65,scope:'us-catalogue'})};
+  if(String(url).includes('/api/discovery'))return{ok:true,json:async()=>({previewRows:fixtureRows.slice(1),rows:fixtureRows.map(r=>({...r})).concat([{...fixtureRows[1],symbol:'NEWCO::XNGS',price:15,asset:{key:'NEWCO::XNGS',symbol:'NEWCO',name:'Outside Radar Company',exchange:'NASDAQ',mic:'XNGS',country:'United States',currency:'USD',kind:'stocks'}}]),analyzed:150,catalogRead:400,catalogTotal:10000,retryAfter:65,scope:'us-catalogue'})};
   if (String(url).includes('/api/history')) {
     historyRequests++;
     return {ok:true,json:async()=>({key:new URL(url,'https://forma.test').searchParams.get('key'),currency:'USD',exchange:'NASDAQ',fetchedAt:new Date().toISOString(),bars:Array.from({length:180},(_,i)=>({time:new Date(Date.UTC(2026,3,1+i)).toISOString().slice(0,10),open:40+i/10,high:42+i/10,low:39+i/10,close:41+i/10,volume:1000+i}))})};
@@ -111,6 +111,13 @@ async function main() {
   click('[data-idea-mode="cheap"]');
   await new Promise(resolve=>setTimeout(resolve,20));
   assert.equal(w.document.querySelectorAll('.research-idea').length,1,'New cheap company outside the radar is discovered');
+  let lowCeiling=q('[data-idea-pref="ceiling"]');lowCeiling.value='5';lowCeiling.dispatchEvent(new w.Event('change',{bubbles:true}));
+  await new Promise(resolve=>setTimeout(resolve,20));
+  assert.equal(w.document.querySelectorAll('.research-idea').length,0);
+  assert.match(q('.ideas-result-heading h2').textContent,/Nessuna corrispondenza/);
+  assert.equal(w.document.querySelectorAll('.discovery-preview>div').length,5,'Available histories remain inspectable outside the chosen filters');
+  click('[data-discovery-relax]');await new Promise(resolve=>setTimeout(resolve,20));
+  assert.equal(q('[data-idea-pref="ceiling"]').value,'50');assert.equal(w.document.querySelectorAll('.research-idea').length,6);
   const ceiling=q('[data-idea-pref="ceiling"]');ceiling.value='50';ceiling.dispatchEvent(new w.Event('change',{bubbles:true}));
   await new Promise(resolve=>setTimeout(resolve,20));
   assert.equal(w.document.querySelectorAll('.research-idea').length,6);

@@ -49,6 +49,10 @@ Vercel pubblica automaticamente i commit inviati a `main` dal repository GitHub 
 
 ## Ricerca indipendente USA
 
+La paginazione del catalogo Twelve Data parte da `page=0`, verificato sulla risposta pubblica del provider; l'interfaccia conserva pagine da 1. La migrazione del cursore della ricerca conserva risultati, coda e budget. La coda viene salvata prima delle richieste agli storici e i titoli vengono rimossi solo quando completati: una richiesta interrotta conserva il lavoro da riprendere. La funzione ha un limite esplicito di 60 secondi su Vercel.
+
+L'interfaccia distingue ricerca in corso, errori di servizio e filtri senza corrispondenze. Quando non ci sono corrispondenze, puoi vedere fino a 12 titoli analizzati fuori dai filtri o allentare le soglie. Questi titoli non vengono presentati come raccomandazioni. Errori di autorizzazione, copertura del piano e salvataggio nel cloud sono visibili; aggiornare durante il cooldown conserva l'orario originale del prossimo gruppo.
+
 `api/discovery.js` pagina il catalogo USA, filtra azioni e depositary receipt su NASDAQ/NYSE/NYSE American e analizza fino a 6 storici ogni 65 secondi. Il radar personale non limita la ricerca e non viene modificato. La scansione procede mentre Idee per te resta aperta; riprende dal punto salvato nello store privato `forma/discovery-v1.json`. Non esiste una scansione completa istantanea o un processo attivo a sito chiuso.
 
 Un lease con ETag coordina le richieste tra dispositivi. Il budget conservativo della scansione riserva fino a 600 crediti al giorno UTC, in gruppi di 7, lasciando margine agli altri strumenti; il provider applica comunque la quota reale del piano. Gli errori di quota rinviano i titoli, gli errori di copertura vengono contati. I risultati sono conservati fino a 7 giorni con date visibili, e i titoli rivisitati dopo almeno 24 ore. Il server restituisce fino a 240 risultati compatibili con i filtri, poi il browser applica le preferenze del portafoglio e mostra i primi 18. Le dimensioni del catalogo e il numero analizzato sono mostrati separatamente.

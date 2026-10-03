@@ -74,7 +74,7 @@ module.exports = async (req, res) => {
       }, 24 * 60 * 60_000);
       return res.status(200).json(data);
     }
-    const id = JSON.stringify({ version: 'us-primary-v2', query: query.toLowerCase(), kind, country, exchange, page });
+    const id = JSON.stringify({ version: 'us-primary-v3', query: query.toLowerCase(), kind, country, exchange, page });
     const data = await cached(id, async () => {
       if (query) {
         const search = aliases[compact(query)] || query;
@@ -84,7 +84,7 @@ module.exports = async (req, res) => {
         return { rows: matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), total: matches.length, page, pageSize: PAGE_SIZE, hasMore: matches.length > page * PAGE_SIZE,
           capped: raw.length >= 120, search: true, fetchedAt: new Date().toISOString(), source: 'Twelve Data' };
       }
-      const params = new URLSearchParams({ page: String(page), outputsize: String(PAGE_SIZE), show_plan: 'true', include_delisted: 'false' });
+      const params = new URLSearchParams({ page: String(page - 1), outputsize: String(PAGE_SIZE), show_plan: 'true', include_delisted: 'false' });
       if (country) params.set('country', country); if (exchange) params.set('exchange', exchange);
       const source = await provider(`/${kind === 'etfs' ? 'etfs' : 'stocks'}?${params}`, key);
       const raw = source.result?.list || source.data || [];

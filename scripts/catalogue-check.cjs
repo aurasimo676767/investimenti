@@ -19,7 +19,7 @@ global.fetch = async (url, options) => {
   const u = new URL(url); calls.push(u);
   assert.equal(options.headers.Authorization, 'apikey test-only-key');
   let data;
-  if (u.pathname === '/stocks') data = { data: u.searchParams.get('page') === '2' ? [{ ...apple, symbol: 'MSFT', name: 'Microsoft' }] : [apple], count: 61 };
+  if (u.pathname === '/stocks') data = { data: u.searchParams.get('page') === '1' ? [{ ...apple, symbol: 'MSFT', name: 'Microsoft' }] : [apple], count: 61 };
   else if (u.pathname === '/etfs') data = { result: { list: [etf], count: 1 } };
   else if (u.pathname === '/exchanges') data = { data: [{ name: 'NASDAQ', country: 'United States' }, { name: 'XETRA', country: 'Germany' }] };
   else if (u.pathname === '/symbol_search') data = { data: u.searchParams.get('symbol') === 'broad' ? Array.from({ length: 120 }, (_, i) => ({ ...apple, symbol: `A${i}` })) : u.searchParams.get('symbol') === 'Space Exploration Technologies' ? [{ ...apple, symbol: 'SPCX', name: 'Space Exploration Technologies Corp.' }, { ...apple, symbol: 'SPCX', mic_code: 'IEXG', exchange: 'IEX' }] : [apple, { ...apple, mic_code: 'IEXG', exchange: 'IEX' }, german, etf] };
