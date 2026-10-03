@@ -1,0 +1,48 @@
+/* Forma: midnight glass, luminous edges and motion that follows interaction. */
+:root{--ease:cubic-bezier(.22,1,.36,1);--motion-fast:180ms;--motion-slow:650ms}
+body{background:#080d19;background-image:radial-gradient(ellipse at 80% 0%,#33305b35,transparent 45%),radial-gradient(ellipse at 20% 65%,#13385024,transparent 50%)}
+.ambient{opacity:.65;pointer-events:none}.ambient-violet,.ambient-blue{animation:none!important}
+.sidebar{background:linear-gradient(165deg,#151b30f5,#0b1222f5);box-shadow:inset -1px 0 0 #c2caff09}
+.brand-mark{transition:transform .55s var(--ease)}.brand:hover .brand-mark{transform:rotate(-8deg) translateY(-2px)}
+.nav-button{min-height:48px;transition:background .3s var(--ease),color .3s var(--ease),transform .3s var(--ease)}
+.nav-button.active{background:linear-gradient(110deg,#9984ff2e,#637eff10);box-shadow:inset 0 1px 0 #d4caff13,inset 0 0 0 1px #b7aaff20}
+.nav-button.active svg{animation:icon-land .45s var(--ease)}
+.page-heading{padding-bottom:8px}.page-heading h1{letter-spacing:-.055em;text-wrap:balance}.page-heading p{max-width:64ch}
+.page-enter{animation:page-unfold .55s var(--ease) both}
+.panel{border-color:#c4d2ff0c;box-shadow:inset 0 1px 0 #e2e8ff07,0 12px 35px #030a1514;background-color:#131d30}
+.hero-shell{padding:7px;border-radius:34px;background:linear-gradient(130deg,#b2a3ff30,#69cfff12 50%,#ffffff06);box-shadow:0 20px 60px #27386c18}
+.hero-card{border-radius:27px;background:radial-gradient(ellipse at 95% 0%,#6789ff38,transparent 56%),radial-gradient(ellipse at 0% 100%,#8462d935,transparent 65%),linear-gradient(125deg,#22294a,#14263a);isolation:isolate;min-height:285px}
+.hero-card:before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 39px,#d3deff06 40px),repeating-linear-gradient(90deg,transparent 0 39px,#d3deff06 40px);mask-image:linear-gradient(90deg,transparent 25%,#000)}
+.hero-value{font-size:clamp(42px,4.5vw,72px);letter-spacing:-.065em;text-shadow:0 3px 30px #a8c9ff13;animation:value-land .75s var(--ease) both}
+.hero-art{opacity:.65}.orbital{animation:none!important}.hero-art .orbit-core{box-shadow:inset 0 1px 0 #dbe5ff20,0 0 50px #9d95ff12}
+.metric-card{background:linear-gradient(130deg,#1b2540,#121d30);padding:24px;border-radius:25px}.metric-title{color:#becce1}.metric-number{letter-spacing:-.045em}.metric-icon{border-radius:13px;background:#84aaff12}
+.section-head{margin-top:38px;margin-bottom:20px}.section-head h2{font-size:clamp(24px,2.4vw,32px);letter-spacing:-.045em}.section-kicker{color:#a4b6d5}
+.price-chart-panel{border-radius:28px;background:radial-gradient(ellipse at 100% 0%,#6074d916,transparent 45%),linear-gradient(145deg,#17243a,#101a2c);box-shadow:inset 0 1px 0 #d6e1ff13,0 18px 45px #02081318}
+.chart-canvas{border-radius:16px;overflow:hidden}.chart-summary{padding-top:10px}.chart-summary>strong{font-family:var(--display);font-size:34px}.chart-toolbar{padding:14px 0;border-block:1px solid #c5d4ff0a}.chart-explanation details{padding:0 12px;background:#060e1c25;border-radius:13px}.chart-credit{opacity:.85}
+.monthly-panel,.update-guide{border-radius:26px}.portfolio-explainer{background:#17203970;border-color:#a3baff12}
+.catalogue-panel{background:radial-gradient(ellipse at 100% 0%,#786bcc16,transparent 45%),linear-gradient(150deg,#182237,#101b2b);border-radius:28px}.catalogue-heading h2{letter-spacing:-.05em}.catalogue-globe{background:linear-gradient(135deg,#b2a3ff15,#6ac6ed08);box-shadow:inset 0 1px 0 #ffffff10}
+.catalogue-row,.holding-row,.transaction-row,.setting-row{transition:background .28s var(--ease),box-shadow .28s var(--ease);border-radius:14px}.catalogue-row:hover,.holding-row:hover,.transaction-row:hover{background:#9bb9ff06;box-shadow:inset 3px 0 0 #a798ff45}
+.catalogue-row .ticker-logo,.company-cell .ticker-logo{transition:transform .4s var(--ease),box-shadow .4s var(--ease)}.catalogue-row:hover .ticker-logo{transform:scale(1.06) rotate(-3deg);box-shadow:0 5px 15px #769cff10}
+.search-field{transition:border-color .25s var(--ease),box-shadow .25s var(--ease)}.search-field:focus-within{border-color:#a394f080;box-shadow:0 0 0 4px #9c87ff0c}.search-field input{min-width:0}
+.company-card,.idea-card,.watch-card,.tool-preview,.mover{transition:transform .4s var(--ease),box-shadow .4s var(--ease),border-color .4s var(--ease)}
+.mover-lead.gain{background:radial-gradient(ellipse at 90% 0%,#48d7ad20,transparent 80%),#12272c}.mover-lead.loss{background:radial-gradient(ellipse at 90% 0%,#ff749720,transparent 80%),#281d30}.mover-change{font-size:clamp(25px,2.4vw,34px)}.mover-name strong{font-size:13px}.mover-name>span,.mover-date{font-size:10px}.market-foot{font-size:11px;line-height:1.7}.market-foot .text-button{font-size:11px}
+.button-primary,.button-secondary,.button-subtle,.top-add,.icon-button,.bookmark-button,.chip,.segmented button{transition:transform .25s var(--ease),background .25s var(--ease),box-shadow .25s var(--ease),color .25s var(--ease)}
+.button-primary,.top-add{background:linear-gradient(120deg,#c2b4ff,#9ebdff);color:#101a31;border-radius:999px;box-shadow:inset 0 1px 0 #ffffff50,0 5px 20px #9587eb14}.button-primary svg,.button-secondary svg{transition:transform .4s var(--ease)}
+.button-secondary{border-radius:999px;background:#b0c0e708;border-color:#bacdff18}.button-subtle{border-radius:999px}.button-primary:hover svg,.button-secondary:hover svg{transform:translateX(3px)}
+button:active:not(:disabled){transform:scale(.97)}button:disabled{cursor:not-allowed}.segmented{padding:4px;background:#080f1e75;border-color:#aabfff0c}.segmented button.active{background:linear-gradient(135deg,#aaa0ff30,#769cfb18);box-shadow:inset 0 1px 0 #cfc7ff20}.chip.active{box-shadow:inset 0 0 0 1px #aca0ff40}
+.bookmark-button.saved{animation:save-pop .42s var(--ease)}.ticker-logo{box-shadow:inset 0 1px 0 #ffffff08}
+.modal-backdrop{animation:veil-in .22s var(--ease) both}.modal{animation:dialog-land .38s var(--ease) both;border-color:#c6cfff20;background:linear-gradient(150deg,#1a253c,#111b2e);box-shadow:inset 0 1px 0 #eef2ff0d,0 24px 100px #00000026;border-radius:28px}
+.toast{border-radius:18px;border-color:#bbb4ff30;background:#202b43;box-shadow:inset 0 1px 0 #e4ddff13,0 12px 40px #050a1820;transition:transform .42s var(--ease),opacity .3s var(--ease)}
+details>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:20px}details>summary::-webkit-details-marker{display:none}details>summary:after{content:'+';font-size:20px;font-weight:400;color:#b2a3ff;transition:transform .3s var(--ease)}details[open]>summary:after{transform:rotate(45deg)}details[open]>p,details[open]>table,details[open]>.chart-table-content{animation:detail-land .3s var(--ease) both}
+:is(button,a,input,select,textarea,summary):focus-visible{outline:2px solid #bcb0ff;outline-offset:4px}
+.reveal{transition:opacity .65s var(--ease),transform .65s var(--ease);transition-delay:var(--reveal-delay,0ms);transform:translateY(18px)}.reveal.is-visible{transform:translateY(0)}
+@media(hover:hover) and (pointer:fine){.company-card:hover,.idea-card:hover,.watch-card:hover,.tool-preview:hover{transform:translateY(-4px);border-color:#a9bdff24;box-shadow:inset 0 1px 0 #e2e8ff10,0 15px 35px #091a3020}.mover:hover{transform:translateY(-3px);border-color:#a9bdff25}.button-primary:hover,.top-add:hover{transform:translateY(-2px);box-shadow:inset 0 1px 0 #ffffff60,0 8px 24px #9587eb25}.nav-button:hover{transform:translateX(3px)}}
+@media(max-width:760px){.hero-shell{border-radius:28px;padding:5px}.hero-card{border-radius:23px;min-height:275px}.hero-value{font-size:clamp(36px,10vw,56px)}.hero-art{opacity:.4}.metric-card{padding:20px}.section-head{margin-top:30px}.price-chart-panel,.catalogue-panel,.monthly-panel{border-radius:23px}.chart-summary>strong{font-size:29px}.mobile-nav{background:linear-gradient(135deg,#1e2943ee,#131c31f5);border-color:#c7bfff25;box-shadow:inset 0 1px 0 #ddd6ff15,0 8px 30px #03091624}.mobile-nav button{transition:color .25s var(--ease),background .25s var(--ease),transform .25s var(--ease)}.mobile-nav button.active{background:#a493ff1b;border-radius:14px}.mobile-nav button.active svg{animation:icon-land .45s var(--ease)}.catalogue-row{border-radius:12px}.modal{border-radius:24px}.mover-name strong{font-size:12px}}
+@keyframes page-unfold{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes value-land{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes icon-land{0%{transform:translateY(3px) scale(.9)}65%{transform:translateY(-2px) scale(1.06)}100%{transform:none}}
+@keyframes save-pop{0%{transform:scale(.8)}55%{transform:scale(1.15)}100%{transform:none}}
+@keyframes veil-in{from{opacity:0}to{opacity:1}}
+@keyframes dialog-land{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes detail-land{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.reveal{opacity:1;transform:none}.company-card:hover,.idea-card:hover,.watch-card:hover,.tool-preview:hover,.mover:hover,.nav-button:hover{transform:none}}

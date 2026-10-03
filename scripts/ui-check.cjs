@@ -18,7 +18,7 @@ w.LightweightCharts = {
   AreaSeries:'area',CandlestickSeries:'candles',HistogramSeries:'volume',LineSeries:'line',
   createChart(element,options) { const chart = { removed:false, addSeries(type) { const series = { setData(data){chartSets.push({type,data});},priceScale(){return{applyOptions(){}};} };return series; },timeScale(){return{fitContent(){}};},subscribeCrosshairMove(){},applyOptions(){},remove(){chart.removed=true;} }; chartInstances.push(chart); return chart; }
 };
-const style = w.document.createElement('style'); style.textContent = fs.readFileSync(path.join(root, 'styles.css'), 'utf8'); w.document.head.appendChild(style);
+const style = w.document.createElement('style'); style.textContent = fs.readFileSync(path.join(root, 'styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'polish.css'), 'utf8'); w.document.head.appendChild(style);
 assert.ok(style.sheet?.cssRules.length > 100, 'Stylesheet must parse successfully');
 w.scrollTo = () => {}; w.confirm = () => true; w.setInterval = () => 0;
 w.IntersectionObserver = class { observe(el) { el.classList.add('is-visible'); } disconnect() {} unobserve() {} };

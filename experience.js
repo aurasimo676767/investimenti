@@ -100,7 +100,7 @@ function animatePage() {
   experienceObserver?.disconnect();
   if (!document.querySelectorAll || !('IntersectionObserver' in window)) return;
   const observer = new IntersectionObserver(entries => { entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('is-visible'); observer.unobserve(entry.target); } }); }, { threshold: .08 });
-  document.querySelectorAll('.section-head, .overview-lower, .ideas-grid, .dashboard-bottom-grid, .lab-grid, .journal-grid').forEach(el => { el.classList.add('reveal'); observer.observe(el); });
+  document.querySelectorAll('.section-head, .overview-lower, .ideas-grid, .dashboard-bottom-grid, .lab-grid, .journal-grid, .price-chart-panel, .monthly-panel, .company-card, .watch-card, .settings-card, .update-guide').forEach((el,i) => { el.classList.add('reveal'); el.style.setProperty('--reveal-delay', `${Math.min(i % 3 * 45,90)}ms`); observer.observe(el); });
   experienceObserver = observer;
 }
 document.addEventListener('click', event => {

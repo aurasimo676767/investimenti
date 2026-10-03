@@ -86,6 +86,8 @@ function drawPrice(panel,data) {
   if (chartAverage) { const average = chart.addSeries(lib.LineSeries,{color:'#aca0ff',lineWidth:2,priceLineVisible:false,lastValueVisible:false}); const rows = data.bars.map((b,i) => i < 19 ? null : {time:b.time,value:data.bars.slice(i-19,i+1).reduce((sum,r) => sum+r.close,0)/20}).filter(b => b && b.time >= first.time); average.setData(rows); }
   chart.subscribeCrosshairMove(event => { const value = event.seriesData.get(series); const bar = value && bars.find(b => b.time === event.time); show(bar || last); });
   chart.timeScale().fitContent();
+  const canvas = panel.querySelector('.chart-canvas');
+  if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) canvas.animate?.([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:450,easing:'cubic-bezier(.22,1,.36,1)'});
 }
 async function mountPrice(panel) {
   const key = panel.dataset.chartKey;
