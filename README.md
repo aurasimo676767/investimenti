@@ -4,7 +4,7 @@ Un osservatorio personale per organizzare un portafoglio, confrontare tendenze r
 
 ## Avvio locale
 
-Apri `index.html` in un browser moderno. Non servono dipendenze o un server per l'interfaccia.
+Esegui `npm install` e `npm run build`, poi servi la cartella `dist` con un server statico. La build include localmente TradingView Lightweight Charts e la relativa licenza. Le API dei prezzi, dello storico e del cloud richiedono le funzioni Vercel e le variabili d'ambiente del progetto; aprire soltanto il file HTML non le abilita.
 
 ## Dati
 
@@ -26,6 +26,9 @@ Nel progetto Vercel, apri **Storage → Create Storage → Blob** e crea uno sto
 
 ## Radar e strumenti
 
+- **Grafici**: nella pagina Portafoglio e nei dettagli di ogni titolo, storico giornaliero reale con linea/candele, volumi quando disponibili, zoom, cursore sui valori, periodi 1/3/6 mesi e 1 anno, media mobile di 20 sedute e tabella accessibile delle ultime 20 sedute. TradingView Lightweight Charts è incluso nella build, con attribuzione visibile e licenza Apache 2.0. La sede viene mantenuta nelle richieste, i dati sono corretti per gli split e non includono dividendi. Cache privata condivisa di un'ora: cambiare periodo o stile non consuma altre richieste al provider. Lo storico può essere più corto o non disponibile secondo strumento e piano; non vengono generati dati mancanti.
+- **Acquisti e vendite mensili**: grafico dei movimenti presenti nel CSV, comprensivo delle commissioni. Le vendite sotto lo zero indicano denaro ricavato, non perdite. Sono mostrati gli ultimi 12 mesi con operazioni, non una ricostruzione del rendimento storico. Il grafico degli importi viene nascosto dal controllo privacy.
+- **Guida agli aggiornamenti**: Impostazioni spiega come importare un nuovo CSV senza duplicare le operazioni native Trade Republic, quando vengono aggiornati i prezzi e come associare un nuovo titolo. Le principali voci del portafoglio hanno spiegazioni apribili sul posto.
 - **Radar → Catalogo USA**: ricerca per nome/ticker sulle sedi principali USA, senza doppioni per ticker nei risultati di ricerca e senza sedi IEX/OTC. Nomi comuni come SpaceX, Google e Facebook cercano il nome societario nel provider. La paginazione mostra le sedi principali della pagina; il conteggio indica registrazioni USA del provider prima del filtro sulle sedi. Non coincide necessariamente con l'offerta di Trade Republic.
 - La ricerca testuale del provider restituisce fino a 120 corrispondenze: l'interfaccia segnala quando raggiunge questo limite. Per sfogliare l'elenco completo cancella il testo e usa i filtri. Cache delle pagine e delle borse per 24 ore, delle ricerche per 10 minuti, conservata anche nello store Blob privato.
 - Aprendo uno strumento viene richiesta la quotazione della sede selezionata, in valuta originale. Piano, paese, borsa e orario sono visibili; i prezzi non disponibili nel piano vengono segnalati. Non vengono richieste quotazioni per tutte le righe del catalogo. I dettagli del provider possono avere ritardi secondo mercato e piano.

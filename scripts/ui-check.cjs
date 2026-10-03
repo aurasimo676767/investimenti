@@ -13,6 +13,11 @@ const fixtureRows = ['IREN','NVDA','MSFT','PLTR','TSLA','SOFI'].map((symbol, i) 
   date: '2026-10-02', baseline: { day: '2026-10-01', week: '2026-09-25', month: '2026-09-03' }, sessions: 32, drawdown: -3, fetchedAt: Date.now() }));
 const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'https://forma.test', pretendToBeVisual: true, virtualConsole });
 const w = dom.window;
+const chartInstances = [], chartSets = []; let historyRequests = 0;
+w.LightweightCharts = {
+  AreaSeries:'area',CandlestickSeries:'candles',HistogramSeries:'volume',LineSeries:'line',
+  createChart(element,options) { const chart = { removed:false, addSeries(type) { const series = { setData(data){chartSets.push({type,data});},priceScale(){return{applyOptions(){}};} };return series; },timeScale(){return{fitContent(){}};},subscribeCrosshairMove(){},applyOptions(){},remove(){chart.removed=true;} }; chartInstances.push(chart); return chart; }
+};
 const style = w.document.createElement('style'); style.textContent = fs.readFileSync(path.join(root, 'styles.css'), 'utf8'); w.document.head.appendChild(style);
 assert.ok(style.sheet?.cssRules.length > 100, 'Stylesheet must parse successfully');
 w.scrollTo = () => {}; w.confirm = () => true; w.setInterval = () => 0;
@@ -23,6 +28,10 @@ const catalogAssets = [
   { key: 'MSFT::XNYS', symbol: 'MSFT', name: 'Microsoft', kind: 'stocks', exchange: 'NYSE', mic: 'XNYS', country: 'United States', currency: 'USD', plan: 'Grow', trackable: true }
 ];
 w.fetch = async (url, options) => {
+  if (String(url).includes('/api/history')) {
+    historyRequests++;
+    return {ok:true,json:async()=>({key:new URL(url,'https://forma.test').searchParams.get('key'),currency:'USD',exchange:'NASDAQ',fetchedAt:new Date().toISOString(),bars:Array.from({length:180},(_,i)=>({time:new Date(Date.UTC(2026,3,1+i)).toISOString().slice(0,10),open:40+i/10,high:42+i/10,low:39+i/10,close:41+i/10,volume:1000+i}))})};
+  }
   if (String(url).includes('/api/catalogue')) {
     const params = new URL(url, 'https://forma.test').searchParams; catalogueRequests.push(params);
     if (params.get('mode') === 'filters') return { ok: true, json: async () => ({ countries: ['Germany','United States'], exchanges: [{ name: 'NASDAQ', country: 'United States' }, { name: 'XETRA', country: 'Germany' }] }) };
@@ -42,7 +51,7 @@ const seeded = { demo: false, hidden: false, transactions: [{ id: 'a', ticker: '
   prices: { IREN: 40 }, quoteMeta: { IREN: { fetchedAt: new Date().toISOString() } }, symbols: {}, watchlist: [], notes: {}, journal: [], alerts: [] };
 w.localStorage.setItem('forma-invest-v1', JSON.stringify(seeded));
 w.localStorage.setItem('forma-market-v1', JSON.stringify({ rows: fixtureRows, total: 6, complete: true }));
-for (const file of ['tr-import.js','research.js','experience.js','catalogue.js','app.js']) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), dom.getInternalVMContext(), { filename: file });
+for (const file of ['tr-import.js','research.js','experience.js','catalogue.js','charts.js','app.js']) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), dom.getInternalVMContext(), { filename: file });
 const q = selector => w.document.querySelector(selector);
 const click = selector => { assert.ok(q(selector), `Missing ${selector}`); q(selector).click(); };
 const input = (selector, value) => { assert.ok(q(selector)); q(selector).value = value; q(selector).dispatchEvent(new w.Event('input', { bubbles: true })); };
@@ -50,10 +59,22 @@ const submit = selector => q(selector).dispatchEvent(new w.Event('submit', { bub
 async function main() {
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.ok(q('h1').textContent.includes('capitale'));
+  assert.ok(chartSets.some(s=>s.type==='area' && s.data.length>1));
+  assert.equal(chartSets.find(s=>s.type==='volume' && s.data[0]?.value===201).data[0].value,201,'Monthly buys include commissions');
+  const originalHistoryRequests = historyRequests;
+  click('[data-chart-period="1m"]'); await new Promise(resolve=>setTimeout(resolve,10));
+  assert.equal(historyRequests,originalHistoryRequests,'Period change reuses provider data');
+  click('[data-chart-style="candles"]'); await new Promise(resolve=>setTimeout(resolve,10));
+  assert.ok(chartSets.some(s=>s.type==='candles' && s.data[0].high));
+  click('[data-chart-average]'); await new Promise(resolve=>setTimeout(resolve,10));
+  assert.ok(chartSets.some(s=>s.type==='line' && s.data.length));
+  assert.ok(chartInstances.some(c=>c.removed),'Replaced charts must be disposed');
   assert.equal(q('.mover-name span').textContent.trim().split(' ')[0], 'IREN');
   click('[data-timeframe="week"]'); assert.equal(q('.mover-name span').textContent.trim().split(' ')[0], 'NVDA');
   click('[data-direction="losers"]'); assert.ok(q('.mover-lead').classList.contains('loss'));
   click('[data-asset="TSLA"]'); assert.ok(q('.modal').textContent.includes('Tesla'));
+  click('.modal [data-open-chart="TSLA"]'); await new Promise(resolve=>setTimeout(resolve,10));
+  assert.ok(q('.modal .chart-canvas')); assert.ok(q('.chart-table-content table'));
   w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); assert.equal(q('.modal'), null);
   click('#desktop-nav [data-nav="discover"]'); input('#company-search', 'iren'); assert.equal(w.document.querySelectorAll('.company-card').length, 1);
   click('[data-bookmark="IREN"]'); click('#desktop-nav [data-nav="watchlist"]'); assert.equal(w.document.querySelectorAll('.watch-card').length, 1);
@@ -73,6 +94,7 @@ async function main() {
   input('#transaction-search', 'iren'); assert.equal(w.document.querySelectorAll('.transaction-row').length, 1);
   click('[data-trade-side="sell"]'); assert.equal(w.document.querySelectorAll('.transaction-row').length, 0);
   for (const page of ['overview','discover','watchlist','lab','transactions','settings']) { click(`#mobile-nav [data-nav="${page}"]`); assert.ok(q('h1')); }
+  assert.ok(q('.update-guide').textContent.includes('ogni 20 minuti'));
   click('#desktop-nav [data-nav="discover"]');
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(w.document.querySelectorAll('.catalogue-row').length, 2);
