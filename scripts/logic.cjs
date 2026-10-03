@@ -17,7 +17,7 @@ const context = vm.createContext({
   document: { querySelector: element, addEventListener() {} },
   window: { scrollTo() {} }
 });
-for (const file of ['research.js', 'experience.js', 'app.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context);
+for (const file of ['research.js', 'experience.js', 'catalogue.js', 'app.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context);
 const run = code => vm.runInContext(code, context);
 
 assert.strictEqual(run('portfolio().rows.length'), 0);

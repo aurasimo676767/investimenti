@@ -40,9 +40,9 @@ async function apiChecks() {
   };
   process.env.TWELVEDATA_API_KEY = 'test-only'; process.env.BLOB_STORE_ID = 'test-only';
   global.fetch = async url => {
-    requests++; requestedSymbols = new URL(url).searchParams.get('symbol').split(',');
-    const body = Object.fromEntries(requestedSymbols.map(s => [s, { meta: { symbol: s, currency: 'USD', exchange: 'NASDAQ' }, values }]));
-    return { ok: true, json: async () => body };
+    requests++; const requested = new URL(url).searchParams.get('symbol').split(','); requestedSymbols = requested;
+    const body = Object.fromEntries(requested.map(s => [s, { meta: { symbol: s, currency: 'USD', exchange: 'NASDAQ' }, values }]));
+    return { ok: true, json: async () => requested.length === 1 ? body[requested[0]] : body };
   };
   try {
     const handler = require('../api/market.js');
@@ -50,11 +50,11 @@ async function apiChecks() {
     assert.equal((await request('INVALID!')).code, 400);
     const first = await request('AAPL,MSFT,NVDA,AMD,IREN,TSLA,HOOD');
     assert.equal(first.code, 200); assert.equal(first.body.rows.length, 6); assert.equal(first.body.complete, false);
-    assert.equal(requestedSymbols.length, 6); assert.equal(requests, 1);
+    assert.equal(requestedSymbols.length, 1); assert.equal(requests, 6);
     const second = await request('AAPL,MSFT,NVDA,AMD,IREN,TSLA');
-    assert.equal(second.body.complete, true); assert.equal(requests, 1);
+    assert.equal(second.body.complete, true); assert.equal(requests, 6);
     assert.equal((await request('AAPL,MSFT,NVDA,AMD,IREN,TSLA,HOOD')).body.rows.length, 6);
-    assert.equal(requests, 1);
+    assert.equal(requests, 6);
     console.log('Market API checks passed: validation, six-symbol quota, persisted cache, shared refresh cooldown.');
   } finally {
     Module._load = originalLoad; global.fetch = originalFetch;

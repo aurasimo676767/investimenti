@@ -17,8 +17,20 @@ const style = w.document.createElement('style'); style.textContent = fs.readFile
 assert.ok(style.sheet?.cssRules.length > 100, 'Stylesheet must parse successfully');
 w.scrollTo = () => {}; w.confirm = () => true; w.setInterval = () => 0;
 w.IntersectionObserver = class { observe(el) { el.classList.add('is-visible'); } disconnect() {} unobserve() {} };
-let cloudSnapshot;
+let cloudSnapshot, catalogueRequests = [], instrumentRequests = 0;
+const catalogAssets = [
+  { key: 'AAPL::XNGS', symbol: 'AAPL', name: 'Apple Inc', kind: 'stocks', exchange: 'NASDAQ', mic: 'XNGS', country: 'United States', currency: 'USD', plan: 'Basic', trackable: true },
+  { key: 'AAPL::XETR', symbol: 'AAPL', name: 'Apple Inc', kind: 'stocks', exchange: 'XETRA', mic: 'XETR', country: 'Germany', currency: 'EUR', plan: 'Grow', trackable: true }
+];
 w.fetch = async (url, options) => {
+  if (String(url).includes('/api/catalogue')) {
+    const params = new URL(url, 'https://forma.test').searchParams; catalogueRequests.push(params);
+    if (params.get('mode') === 'filters') return { ok: true, json: async () => ({ countries: ['Germany','United States'], exchanges: [{ name: 'NASDAQ', country: 'United States' }, { name: 'XETRA', country: 'Germany' }] }) };
+    const rows = params.get('kind') === 'etfs' ? [{ ...catalogAssets[0], key: 'SPY::ARCX', symbol: 'SPY', name: 'SPDR ETF', kind: 'etfs' }] : params.get('page') === '2' ? [catalogAssets[1]] : catalogAssets;
+    return { ok: true, json: async () => ({ rows, page: Number(params.get('page')), total: 61, pageSize: 30, hasMore: params.get('page') !== '2', search: !!params.get('q'), fetchedAt: new Date().toISOString() }) };
+  }
+  if (String(url).includes('/api/instrument')) { instrumentRequests++; return { ok: true, json: async () => ({ key: 'AAPL::XETR', price: 100, currency: 'EUR', exchange: 'XETRA', day: -2.5, fetchedAt: new Date().toISOString() }) }; }
+  if (String(url).includes('/api/quotes')) return { ok: true, json: async () => ({ quotes: [{ symbol: 'AAPL::XETR', priceEur: 100, currency: 'EUR', price: 100 }], errors: [], fetchedAt: new Date().toISOString() }) };
   if (String(url).includes('/api/state')) {
     if (options?.method === 'PUT') { cloudSnapshot = JSON.parse(options.body).state; return { ok: true, status: 200, json: async () => ({ revision: 'test-r1' }) }; }
     return { ok: true, status: 200, json: async () => ({ state: null, revision: null }) };
@@ -30,7 +42,7 @@ const seeded = { demo: false, hidden: false, transactions: [{ id: 'a', ticker: '
   prices: { IREN: 40 }, quoteMeta: { IREN: { fetchedAt: new Date().toISOString() } }, symbols: {}, watchlist: [], notes: {}, journal: [], alerts: [] };
 w.localStorage.setItem('forma-invest-v1', JSON.stringify(seeded));
 w.localStorage.setItem('forma-market-v1', JSON.stringify({ rows: fixtureRows, total: 6, complete: true }));
-for (const file of ['tr-import.js','research.js','experience.js','app.js']) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), dom.getInternalVMContext(), { filename: file });
+for (const file of ['tr-import.js','research.js','experience.js','catalogue.js','app.js']) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), dom.getInternalVMContext(), { filename: file });
 const q = selector => w.document.querySelector(selector);
 const click = selector => { assert.ok(q(selector), `Missing ${selector}`); q(selector).click(); };
 const input = (selector, value) => { assert.ok(q(selector)); q(selector).value = value; q(selector).dispatchEvent(new w.Event('input', { bubbles: true })); };
@@ -61,8 +73,33 @@ async function main() {
   input('#transaction-search', 'iren'); assert.equal(w.document.querySelectorAll('.transaction-row').length, 1);
   click('[data-trade-side="sell"]'); assert.equal(w.document.querySelectorAll('.transaction-row').length, 0);
   for (const page of ['overview','discover','watchlist','lab','transactions','settings']) { click(`#mobile-nav [data-nav="${page}"]`); assert.ok(q('h1')); }
+  click('#desktop-nav [data-nav="discover"]');
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(w.document.querySelectorAll('.catalogue-row').length, 2);
+  assert.equal(instrumentRequests, 0, 'Browsing must not fetch every price');
+  click('[data-catalogue-page="2"]'); await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(w.document.querySelectorAll('.catalogue-row').length, 1);
+  input('#catalogue-search', 'Apple'); await new Promise(resolve => setTimeout(resolve, 380));
+  assert.equal(catalogueRequests.at(-1).get('q'), 'Apple');
+  assert.equal(catalogueRequests.at(-1).get('page'), '1');
+  click('[data-catalogue-open="AAPL::XETR"]'); await new Promise(resolve => setTimeout(resolve, 20));
+  assert.ok(q('#instrument-quote .loss')); assert.ok(q('.modal-head p').textContent.includes('XETRA'));
+  click('.modal [data-bookmark="AAPL::XETR"]');
+  let saved = JSON.parse(w.localStorage.getItem('forma-invest-v1'));
+  assert.ok(saved.watchlist.includes('AAPL::XETR')); assert.equal(saved.assets['AAPL::XETR'].currency, 'EUR');
+  w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  click('[data-catalogue-open="AAPL::XETR"]'); submit('#catalogue-link-form');
+  await new Promise(resolve => setTimeout(resolve, 20));
+  saved = JSON.parse(w.localStorage.getItem('forma-invest-v1'));
+  assert.equal(saved.symbols.IREN, 'AAPL::XETR');
+  assert.equal(q('#quote-form input[name="IREN"]').value, 'AAPL');
+  submit('#quote-form'); await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(JSON.parse(w.localStorage.getItem('forma-invest-v1')).symbols.IREN, 'AAPL::XETR', 'Saving the raw display ticker preserves its venue');
+  click('#desktop-nav [data-nav="discover"]'); click('[data-catalogue-kind="etfs"]'); await new Promise(resolve => setTimeout(resolve, 20));
+  assert.ok(q('[data-catalogue-open="SPY::ARCX"]'));
   await new Promise(resolve => setTimeout(resolve, 850));
   assert.equal(cloudSnapshot.journal.length, 1); assert.equal(cloudSnapshot.alerts.length, 1);
+  assert.equal(cloudSnapshot.assets['AAPL::XETR'].mic, 'XETR');
   assert.ok(!errors.length, errors.join('\n'));
   console.log('UI checks passed: all pages, timeframe ranking, losers, asset details, notes escaping, watchlist, alerts, scenarios, purchase isolation, journal, filters, cloud payload.');
 }

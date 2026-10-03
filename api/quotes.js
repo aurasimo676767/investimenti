@@ -1,4 +1,4 @@
-const SYMBOL = /^[A-Z0-9][A-Z0-9.:-]{0,19}$/;
+const { VALID_KEY: SYMBOL, instrumentPath } = require('../lib/instruments.cjs');
 const positive = value => { const n = Number(value); return Number.isFinite(n) && n > 0 ? n : null; };
 
 async function provider(path, key) {
@@ -22,15 +22,17 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: 'Inserisci da 1 a 7 simboli di mercato validi.' });
   }
   try {
-    const data = await provider(`/quote?symbol=${encodeURIComponent(symbols.join(','))}`, key);
-    const rows = symbols.length === 1 ? { [symbols[0]]: data } : data;
+    const rows = Object.fromEntries(await Promise.all(symbols.map(async symbol => {
+      try { return [symbol, await provider(instrumentPath('quote', symbol), key)]; }
+      catch (error) { return [symbol, { status: 'error', message: error.message }]; }
+    })));
     const valid = [], errors = [];
     for (const symbol of symbols) {
       const quote = rows[symbol];
       const price = positive(quote?.close);
       const currency = String(quote?.currency || '').toUpperCase();
       if (!price || !['EUR', 'USD'].includes(currency)) {
-        errors.push(`${symbol}: quotazione non disponibile o valuta non supportata`);
+        errors.push(`${symbol}: ${quote?.status === 'error' ? String(quote.message).slice(0, 100) : 'quotazione non disponibile o valuta non supportata (EUR/USD)'}`);
         continue;
       }
       valid.push({ symbol, price, currency, exchange: String(quote.exchange || ''),

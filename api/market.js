@@ -1,6 +1,6 @@
 const { get, put } = require('@vercel/blob');
 const { performance } = require('../research.js');
-const SYMBOL = /^[A-Z0-9][A-Z0-9.:-]{0,19}$/;
+const { VALID_KEY: SYMBOL, instrumentPath } = require('../lib/instruments.cjs');
 const PATH = 'forma/market-radar-v1.json';
 const TTL = 60 * 60 * 1000;
 let memory = { rows: {}, attempted: {} }, lastRequest = 0, pending = null;
@@ -33,17 +33,18 @@ async function update(cache, symbols, key) {
   lastRequest = now; cache.lastRequest = now;
   due.forEach(s => { cache.attempted[s] = now; });
   try {
-    const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(due.join(','))}&interval=1day&outputsize=32&adjust=splits`;
-    const response = await fetch(url, { headers: { Authorization: `apikey ${key}` }, signal: AbortSignal.timeout(15000) });
-    const data = await response.json();
-    if (!response.ok || data.status === 'error') {
-      const rateLimited = response.status === 429 || Number(data.code) === 429;
-      cache.error = rateLimited ? 'Quota Twelve Data raggiunta. Il radar riprova tra un minuto.' : 'Twelve Data non ha restituito le serie storiche. Controlla il piano e la chiave.';
-      if (!rateLimited) due.forEach(s => { cache.attempted[s] = now + 15 * 60_000; });
-    } else {
+    const data = Object.fromEntries(await Promise.all(due.map(async symbol => {
+      try {
+        const url = `https://api.twelvedata.com${instrumentPath('time_series', symbol, { interval: '1day', outputsize: '32', adjust: 'splits' })}`;
+        const response = await fetch(url, { headers: { Authorization: `apikey ${key}` }, signal: AbortSignal.timeout(15000) });
+        const result = await response.json();
+        return [symbol, !response.ok ? { ...result, code: Number(result.code) || response.status, status: 'error' } : result];
+      } catch (_) { return [symbol, { code: 502, status: 'error' }]; }
+    })));
+    {
       delete cache.error;
       for (const symbol of due) {
-        const source = due.length === 1 ? data : data[symbol];
+        const source = data[symbol];
         const result = performance(source?.values);
         if (result) cache.rows[symbol] = { symbol, name: String(source.meta?.symbol || symbol), currency: String(source.meta?.currency || ''),
           exchange: String(source.meta?.exchange || ''), ...result, fetchedAt: now };
