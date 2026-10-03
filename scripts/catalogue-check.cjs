@@ -19,10 +19,10 @@ global.fetch = async (url, options) => {
   const u = new URL(url); calls.push(u);
   assert.equal(options.headers.Authorization, 'apikey test-only-key');
   let data;
-  if (u.pathname === '/stocks') data = { data: u.searchParams.get('page') === '2' ? [german] : [apple], count: 61 };
+  if (u.pathname === '/stocks') data = { data: u.searchParams.get('page') === '2' ? [{ ...apple, symbol: 'MSFT', name: 'Microsoft' }] : [apple], count: 61 };
   else if (u.pathname === '/etfs') data = { result: { list: [etf], count: 1 } };
   else if (u.pathname === '/exchanges') data = { data: [{ name: 'NASDAQ', country: 'United States' }, { name: 'XETRA', country: 'Germany' }] };
-  else if (u.pathname === '/symbol_search') data = { data: u.searchParams.get('symbol') === 'broad' ? Array.from({ length: 120 }, (_, i) => ({ ...apple, symbol: `A${i}` })) : [apple, german, etf] };
+  else if (u.pathname === '/symbol_search') data = { data: u.searchParams.get('symbol') === 'broad' ? Array.from({ length: 120 }, (_, i) => ({ ...apple, symbol: `A${i}` })) : u.searchParams.get('symbol') === 'Space Exploration Technologies' ? [{ ...apple, symbol: 'SPCX', name: 'Space Exploration Technologies Corp.' }, { ...apple, symbol: 'SPCX', mic_code: 'IEXG', exchange: 'IEX' }] : [apple, { ...apple, mic_code: 'IEXG', exchange: 'IEX' }, german, etf] };
   else if (u.pathname === '/exchange_rate') data = { rate: '0.9' };
   else if (u.pathname === '/quote') {
     const symbol = u.searchParams.get('symbol');
@@ -56,10 +56,12 @@ async function main() {
   Module._load = function(name, ...args) { if (name === '@vercel/blob') return { get: async path => ({ statusCode: 200, stream: new Response(blobs.get(path)).body, blob: { etag: 'r1' } }), put: async () => ({}) }; return originalLoad.call(this, name, ...args); };
   const coldCatalogue = require('../api/catalogue.js'); Module._load = originalLoad;
   await request(coldCatalogue); assert.equal(calls.length, before, 'Private storage reuses pages across cold starts');
-  assert.equal((await request(catalogue, { page: '2' })).body.rows[0].key, 'AAPL::XETR');
+  assert.equal((await request(catalogue, { page: '2' })).body.rows[0].symbol, 'MSFT');
   assert.equal((await request(catalogue, { kind: 'etfs' })).body.rows[0].kind, 'etfs');
   const search = await request(catalogue, { q: 'Apple', country: 'Germany' });
-  assert.equal(search.body.total, 1); assert.equal(search.body.rows[0].currency, 'EUR');
+  assert.equal(search.body.total, 1); assert.equal(search.body.rows[0].key, 'AAPL::XNGS'); assert.equal(search.body.rows[0].currency, 'USD');
+  assert.equal((await request(catalogue, { q: 'SpaceX' })).body.rows[0].symbol, 'SPCX');
+  assert.equal(calls.at(-1).searchParams.get('symbol'), 'Space Exploration Technologies');
   assert.equal((await request(catalogue, { q: 'Apple', kind: 'etfs' })).body.rows[0].symbol, 'SPY');
   assert.equal((await request(catalogue, { q: 'broad' })).body.capped, true);
   assert.equal((await request(catalogue, { mode: 'filters' })).body.countries.length, 2);

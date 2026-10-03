@@ -3,6 +3,21 @@ const { createHash } = require('node:crypto');
 const { normalizeInstrument } = require('../lib/instruments.cjs');
 const memory = new Map(), pending = new Map();
 const PAGE_SIZE = 30;
+const US = 'United States';
+const primaryMics = new Set(['XNGS','XNMS','XNCM','XNAS','XNYS','XASE','ARCX','BATS','XCBO']);
+const aliases = { spacex: 'Space Exploration Technologies', google: 'Alphabet', facebook: 'Meta Platforms' };
+const compact = value => String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+function principalRows(raw, kind, query = '') {
+  const term = compact(query), expanded = compact(aliases[term] || query);
+  const score = row => (compact(row.symbol) === term ? 1000 : 0) + (compact(row.name) === expanded ? 900 : compact(row.name).startsWith(expanded) ? 700 : compact(row.name).includes(expanded) ? 500 : 0);
+  const selected = new Map();
+  for (const row of raw.map(r => normalizeInstrument(r, kind))) {
+    if (row.kind !== kind || row.country !== US || !(primaryMics.has(row.mic) || !row.mic && /^(NASDAQ|NYSE|NYSE American|NYSE ARCA|CBOE|BATS)$/i.test(row.exchange))) continue;
+    const previous = selected.get(row.symbol);
+    if (!previous || row.mic !== 'BATS' && previous.mic === 'BATS') selected.set(row.symbol, row);
+  }
+  return [...selected.values()].sort((a,b) => query ? score(b) - score(a) || a.name.localeCompare(b.name) : a.symbol.localeCompare(b.symbol));
+}
 async function cached(id, loader, ttl) {
   const previous = memory.get(id);
   if (previous && Date.now() - previous.at < ttl) return previous.data;
@@ -47,7 +62,7 @@ module.exports = async (req, res) => {
   const key = process.env.TWELVEDATA_API_KEY;
   if (!key) return res.status(503).json({ error: 'Chiave Twelve Data non configurata.' });
   const query = String(req.query.q || '').trim(), kind = String(req.query.kind || 'stocks');
-  const country = String(req.query.country || '').trim(), exchange = String(req.query.exchange || '').trim();
+  const country = US, exchange = String(req.query.exchange || '').trim();
   const page = Number(req.query.page || 1);
   if (!['stocks','etfs'].includes(kind) || !Number.isInteger(page) || page < 1 || page > 100000 || query.length > 80 || country.length > 60 || exchange.length > 40 || /[\u0000-\u001f]/.test(query + country + exchange)) return res.status(400).json({ error: 'Filtri del catalogo non validi.' });
   try {
@@ -59,16 +74,13 @@ module.exports = async (req, res) => {
       }, 24 * 60 * 60_000);
       return res.status(200).json(data);
     }
-    const id = JSON.stringify({ query: query.toLowerCase(), kind, country, exchange, page });
+    const id = JSON.stringify({ version: 'us-primary-v2', query: query.toLowerCase(), kind, country, exchange, page });
     const data = await cached(id, async () => {
       if (query) {
-        const source = await provider(`/symbol_search?${new URLSearchParams({ symbol: query, outputsize: '120', show_plan: 'true' })}`, key);
+        const search = aliases[compact(query)] || query;
+        const source = await provider(`/symbol_search?${new URLSearchParams({ symbol: search, outputsize: '120', show_plan: 'true' })}`, key);
         const raw = source.data || source.result?.list || [];
-        const seen = new Set();
-        const matches = raw.map(r => normalizeInstrument(r, kind)).filter(r => {
-          if (seen.has(r.key)) return false; seen.add(r.key);
-          return r.kind === kind && (!country || r.country.toLowerCase() === country.toLowerCase()) && (!exchange || r.exchange.toLowerCase() === exchange.toLowerCase());
-        });
+        const matches = principalRows(raw, kind, query).filter(r => !exchange || r.exchange.toLowerCase() === exchange.toLowerCase());
         return { rows: matches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), total: matches.length, page, pageSize: PAGE_SIZE, hasMore: matches.length > page * PAGE_SIZE,
           capped: raw.length >= 120, search: true, fetchedAt: new Date().toISOString(), source: 'Twelve Data' };
       }
@@ -78,7 +90,7 @@ module.exports = async (req, res) => {
       const raw = source.result?.list || source.data || [];
       const count = Number(source.result?.count ?? source.count);
       const total = Number.isFinite(count) && count >= 0 ? count : null;
-      return { rows: raw.map(r => normalizeInstrument(r, kind)), total, page, pageSize: PAGE_SIZE,
+      return { rows: principalRows(raw, kind), total, countIsListings: true, page, pageSize: PAGE_SIZE,
         hasMore: total === null ? raw.length === PAGE_SIZE : page * PAGE_SIZE < total, capped: false, search: false, fetchedAt: new Date().toISOString(), source: 'Twelve Data' };
     }, query ? 10 * 60_000 : 24 * 60 * 60_000);
     return res.status(200).json(data);

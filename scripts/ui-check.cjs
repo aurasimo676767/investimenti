@@ -20,7 +20,7 @@ w.IntersectionObserver = class { observe(el) { el.classList.add('is-visible'); }
 let cloudSnapshot, catalogueRequests = [], instrumentRequests = 0;
 const catalogAssets = [
   { key: 'AAPL::XNGS', symbol: 'AAPL', name: 'Apple Inc', kind: 'stocks', exchange: 'NASDAQ', mic: 'XNGS', country: 'United States', currency: 'USD', plan: 'Basic', trackable: true },
-  { key: 'AAPL::XETR', symbol: 'AAPL', name: 'Apple Inc', kind: 'stocks', exchange: 'XETRA', mic: 'XETR', country: 'Germany', currency: 'EUR', plan: 'Grow', trackable: true }
+  { key: 'MSFT::XNYS', symbol: 'MSFT', name: 'Microsoft', kind: 'stocks', exchange: 'NYSE', mic: 'XNYS', country: 'United States', currency: 'USD', plan: 'Grow', trackable: true }
 ];
 w.fetch = async (url, options) => {
   if (String(url).includes('/api/catalogue')) {
@@ -29,8 +29,8 @@ w.fetch = async (url, options) => {
     const rows = params.get('kind') === 'etfs' ? [{ ...catalogAssets[0], key: 'SPY::ARCX', symbol: 'SPY', name: 'SPDR ETF', kind: 'etfs' }] : params.get('page') === '2' ? [catalogAssets[1]] : catalogAssets;
     return { ok: true, json: async () => ({ rows, page: Number(params.get('page')), total: 61, pageSize: 30, hasMore: params.get('page') !== '2', search: !!params.get('q'), fetchedAt: new Date().toISOString() }) };
   }
-  if (String(url).includes('/api/instrument')) { instrumentRequests++; return { ok: true, json: async () => ({ key: 'AAPL::XETR', price: 100, currency: 'EUR', exchange: 'XETRA', day: -2.5, fetchedAt: new Date().toISOString() }) }; }
-  if (String(url).includes('/api/quotes')) return { ok: true, json: async () => ({ quotes: [{ symbol: 'AAPL::XETR', priceEur: 100, currency: 'EUR', price: 100 }], errors: [], fetchedAt: new Date().toISOString() }) };
+  if (String(url).includes('/api/instrument')) { instrumentRequests++; return { ok: true, json: async () => ({ key: 'MSFT::XNYS', price: 100, currency: 'EUR', exchange: 'XETRA', day: -2.5, fetchedAt: new Date().toISOString() }) }; }
+  if (String(url).includes('/api/quotes')) return { ok: true, json: async () => ({ quotes: [{ symbol: 'MSFT::XNYS', priceEur: 100, currency: 'EUR', price: 100 }], errors: [], fetchedAt: new Date().toISOString() }) };
   if (String(url).includes('/api/state')) {
     if (options?.method === 'PUT') { cloudSnapshot = JSON.parse(options.body).state; return { ok: true, status: 200, json: async () => ({ revision: 'test-r1' }) }; }
     return { ok: true, status: 200, json: async () => ({ state: null, revision: null }) };
@@ -76,30 +76,31 @@ async function main() {
   click('#desktop-nav [data-nav="discover"]');
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(w.document.querySelectorAll('.catalogue-row').length, 2);
+  assert.equal(q('#catalogue-country'), null, 'Country choice removed: USA only');
   assert.equal(instrumentRequests, 0, 'Browsing must not fetch every price');
   click('[data-catalogue-page="2"]'); await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(w.document.querySelectorAll('.catalogue-row').length, 1);
   input('#catalogue-search', 'Apple'); await new Promise(resolve => setTimeout(resolve, 380));
   assert.equal(catalogueRequests.at(-1).get('q'), 'Apple');
   assert.equal(catalogueRequests.at(-1).get('page'), '1');
-  click('[data-catalogue-open="AAPL::XETR"]'); await new Promise(resolve => setTimeout(resolve, 20));
-  assert.ok(q('#instrument-quote .loss')); assert.ok(q('.modal-head p').textContent.includes('XETRA'));
-  click('.modal [data-bookmark="AAPL::XETR"]');
+  click('[data-catalogue-open="MSFT::XNYS"]'); await new Promise(resolve => setTimeout(resolve, 20));
+  assert.ok(q('#instrument-quote .loss')); assert.ok(q('.modal-head p').textContent.includes('NYSE'));
+  click('.modal [data-bookmark="MSFT::XNYS"]');
   let saved = JSON.parse(w.localStorage.getItem('forma-invest-v1'));
-  assert.ok(saved.watchlist.includes('AAPL::XETR')); assert.equal(saved.assets['AAPL::XETR'].currency, 'EUR');
+  assert.ok(saved.watchlist.includes('MSFT::XNYS')); assert.equal(saved.assets['MSFT::XNYS'].currency, 'USD');
   w.document.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  click('[data-catalogue-open="AAPL::XETR"]'); submit('#catalogue-link-form');
+  click('[data-catalogue-open="MSFT::XNYS"]'); submit('#catalogue-link-form');
   await new Promise(resolve => setTimeout(resolve, 20));
   saved = JSON.parse(w.localStorage.getItem('forma-invest-v1'));
-  assert.equal(saved.symbols.IREN, 'AAPL::XETR');
-  assert.equal(q('#quote-form input[name="IREN"]').value, 'AAPL');
+  assert.equal(saved.symbols.IREN, 'MSFT::XNYS');
+  assert.equal(q('#quote-form input[name="IREN"]').value, 'MSFT');
   submit('#quote-form'); await new Promise(resolve => setTimeout(resolve, 20));
-  assert.equal(JSON.parse(w.localStorage.getItem('forma-invest-v1')).symbols.IREN, 'AAPL::XETR', 'Saving the raw display ticker preserves its venue');
+  assert.equal(JSON.parse(w.localStorage.getItem('forma-invest-v1')).symbols.IREN, 'MSFT::XNYS', 'Saving the raw display ticker preserves its venue');
   click('#desktop-nav [data-nav="discover"]'); click('[data-catalogue-kind="etfs"]'); await new Promise(resolve => setTimeout(resolve, 20));
   assert.ok(q('[data-catalogue-open="SPY::ARCX"]'));
   await new Promise(resolve => setTimeout(resolve, 850));
   assert.equal(cloudSnapshot.journal.length, 1); assert.equal(cloudSnapshot.alerts.length, 1);
-  assert.equal(cloudSnapshot.assets['AAPL::XETR'].mic, 'XETR');
+  assert.equal(cloudSnapshot.assets['MSFT::XNYS'].mic, 'XNYS');
   assert.ok(!errors.length, errors.join('\n'));
   console.log('UI checks passed: all pages, timeframe ranking, losers, asset details, notes escaping, watchlist, alerts, scenarios, purchase isolation, journal, filters, cloud payload.');
 }
