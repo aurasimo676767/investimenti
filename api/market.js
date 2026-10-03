@@ -1,7 +1,7 @@
 const { get, put } = require('@vercel/blob');
 const { performance } = require('../research.js');
 const { VALID_KEY: SYMBOL, instrumentPath } = require('../lib/instruments.cjs');
-const PATH = 'forma/market-radar-v1.json';
+const PATH = 'forma/market-radar-v2.json';
 const TTL = 60 * 60 * 1000;
 let memory = { rows: {}, attempted: {} }, lastRequest = 0, pending = null;
 
@@ -35,7 +35,7 @@ async function update(cache, symbols, key) {
   try {
     const data = Object.fromEntries(await Promise.all(due.map(async symbol => {
       try {
-        const url = `https://api.twelvedata.com${instrumentPath('time_series', symbol, { interval: '1day', outputsize: '32', adjust: 'splits' })}`;
+        const url = `https://api.twelvedata.com${instrumentPath('time_series', symbol, { interval: '1day', outputsize: '260', adjust: 'splits' })}`;
         const response = await fetch(url, { headers: { Authorization: `apikey ${key}` }, signal: AbortSignal.timeout(15000) });
         const result = await response.json();
         return [symbol, !response.ok ? { ...result, code: Number(result.code) || response.status, status: 'error' } : result];

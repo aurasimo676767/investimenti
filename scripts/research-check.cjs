@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { performance, ledger, scenario, signals } = require('../research.js');
+const { performance, ledger, scenario, signals, screenIdeas } = require('../research.js');
 const values = Array.from({ length: 32 }, (_, i) => ({ datetime: new Date(Date.UTC(2026, 8, 1 + i)).toISOString().slice(0, 10), close: String(100 + i), high: String(102 + i) }));
 const perf = performance(values);
 assert.equal(perf.price, 131);
@@ -9,6 +9,22 @@ assert.ok(Math.abs(perf.month - (131 / 110 - 1) * 100) < 1e-8);
 assert.equal(performance(values.slice(0, 5)).week, null);
 assert.equal(performance([]), null);
 assert.equal(performance([{ datetime: 'bad', close: '100' }]), null);
+assert.equal(performance([{datetime:'2026-01-01',close:'Infinity'}]),null);
+assert.equal(perf.windows.year.sessions,32); assert.equal(perf.windows.year.high,133);
+assert.equal(perf.dollarVolume,null);
+const sample = {symbol:'LOW',currency:'USD',exchange:'NASDAQ',price:4,week:-10,month:-30,group:'Tecnologia',volatility:6,dollarVolume:500000,windows:{year:{high:20,drawdown:-80,sessions:250,from:'2025-10-02',to:'2026-10-02'}}};
+const recovery = {...sample,symbol:'BACK',price:10,week:12,group:'Salute'};
+const unrelated = {...sample,symbol:'FOREIGN',currency:'EUR'};
+assert.equal(screenIdeas([sample,{...sample,symbol:'LOW::XNGS'},unrelated],{owned:['LOW::XNMS']}).length,0,'Exclude owned stock across venues');
+assert.equal(screenIdeas([sample,{...sample,symbol:'LOW::XNGS'},unrelated],{}).length,1,'Deduplicate US ticker and exclude foreign currency');
+assert.equal(screenIdeas([sample,recovery],{mode:'cheap',ceiling:5})[0].symbol,'LOW');
+assert.equal(screenIdeas([sample,recovery],{mode:'recovery'})[0].symbol,'BACK');
+assert.equal(screenIdeas([{...sample,kind:'etfs'}],{}).length,0);
+assert.equal(screenIdeas([{...sample,windows:{year:{...sample.windows.year,sessions:3}}}],{}).length,0);
+const candidates=screenIdeas([sample,recovery],{diversify:true,dominant:'Tecnologia'});
+assert.equal(candidates[0].symbol,'BACK'); assert.equal(candidates[1].recoveryToHigh,400);
+assert.ok(candidates[1].risks.some(text=>text.includes('liquidità')));
+assert.equal(screenIdeas([{...sample,group:undefined}],{dominant:'Tecnologia'})[0].otherSector,false);
 const trades = [
   { id: 'a', date: '2026-01-01', ticker: 'A', side: 'buy', quantity: 10, price: 20, fees: 2 },
   { id: 'b', date: '2026-01-02', ticker: 'A', side: 'sell', quantity: 4, price: 25, fees: 1 },

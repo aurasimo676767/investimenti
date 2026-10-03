@@ -11,6 +11,7 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const fixtureRows = ['IREN','NVDA','MSFT','PLTR','TSLA','SOFI'].map((symbol, i) => ({ symbol, currency: 'USD', exchange: 'NASDAQ',
   price: 40 + i, day: [12,8,-4,3,-2,1][i], week: [15,22,-5,8,-12,5][i], month: [30,40,-10,11,-18,8][i],
   date: '2026-10-02', baseline: { day: '2026-10-01', week: '2026-09-25', month: '2026-09-03' }, sessions: 32, drawdown: -3, fetchedAt: Date.now() }));
+fixtureRows.forEach(r=>{r.windows={year:{high:r.price*2,drawdown:-50,sessions:250,from:'2025-10-02',to:'2026-10-02'},quarter:{high:r.price*1.2,drawdown:-100/6,sessions:63,from:'2026-07-02',to:'2026-10-02'}};r.volatility=3;r.dollarVolume=5000000;});
 const dom = new JSDOM(html, { runScripts: 'outside-only', url: 'https://forma.test', pretendToBeVisual: true, virtualConsole });
 const w = dom.window;
 const chartInstances = [], chartSets = []; let historyRequests = 0;
@@ -18,7 +19,7 @@ w.LightweightCharts = {
   AreaSeries:'area',CandlestickSeries:'candles',HistogramSeries:'volume',LineSeries:'line',
   createChart(element,options) { const chart = { removed:false, addSeries(type) { const series = { setData(data){chartSets.push({type,data});},priceScale(){return{applyOptions(){}};} };return series; },timeScale(){return{fitContent(){}};},subscribeCrosshairMove(){},applyOptions(){},remove(){chart.removed=true;} }; chartInstances.push(chart); return chart; }
 };
-const style = w.document.createElement('style'); style.textContent = fs.readFileSync(path.join(root, 'styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'polish.css'), 'utf8'); w.document.head.appendChild(style);
+const style = w.document.createElement('style'); style.textContent = fs.readFileSync(path.join(root, 'styles.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'polish.css'), 'utf8') + fs.readFileSync(path.join(root, 'ideas.css'), 'utf8'); w.document.head.appendChild(style);
 assert.ok(style.sheet?.cssRules.length > 100, 'Stylesheet must parse successfully');
 w.scrollTo = () => {}; w.confirm = () => true; w.setInterval = () => 0;
 w.IntersectionObserver = class { observe(el) { el.classList.add('is-visible'); } disconnect() {} unobserve() {} };
@@ -51,7 +52,7 @@ const seeded = { demo: false, hidden: false, transactions: [{ id: 'a', ticker: '
   prices: { IREN: 40 }, quoteMeta: { IREN: { fetchedAt: new Date().toISOString() } }, symbols: {}, watchlist: [], notes: {}, journal: [], alerts: [] };
 w.localStorage.setItem('forma-invest-v1', JSON.stringify(seeded));
 w.localStorage.setItem('forma-market-v1', JSON.stringify({ rows: fixtureRows, total: 6, complete: true }));
-for (const file of ['tr-import.js','research.js','experience.js','catalogue.js','charts.js','app.js']) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), dom.getInternalVMContext(), { filename: file });
+for (const file of ['tr-import.js','research.js','experience.js','catalogue.js','charts.js','ideas.js','app.js']) vm.runInContext(fs.readFileSync(path.join(root, file), 'utf8'), dom.getInternalVMContext(), { filename: file });
 const q = selector => w.document.querySelector(selector);
 const click = selector => { assert.ok(q(selector), `Missing ${selector}`); q(selector).click(); };
 const input = (selector, value) => { assert.ok(q(selector)); q(selector).value = value; q(selector).dispatchEvent(new w.Event('input', { bubbles: true })); };
@@ -93,8 +94,20 @@ async function main() {
   click('#desktop-nav [data-nav="transactions"]'); input('#transaction-search', 'nothing'); assert.equal(w.document.querySelectorAll('.transaction-row').length, 0);
   input('#transaction-search', 'iren'); assert.equal(w.document.querySelectorAll('.transaction-row').length, 1);
   click('[data-trade-side="sell"]'); assert.equal(w.document.querySelectorAll('.transaction-row').length, 0);
-  for (const page of ['overview','discover','watchlist','lab','transactions','settings']) { click(`#mobile-nav [data-nav="${page}"]`); assert.ok(q('h1')); }
+  for (const page of ['overview','discover','ideas','watchlist','lab','transactions','settings']) {
+    if (['lab','transactions','settings'].includes(page)) {click('#mobile-nav [data-action="more-nav"]');click(`.modal [data-nav="${page}"]`);assert.equal(q('.modal'),null);}
+    else click(`#mobile-nav [data-nav="${page}"]`);
+    assert.ok(q('h1'));
+  }
   assert.ok(q('.update-guide').textContent.includes('ogni 20 minuti'));
+  click('#desktop-nav [data-nav="ideas"]');
+  assert.equal(w.document.querySelectorAll('.research-idea').length,5,'Held IREN excluded');
+  assert.equal(q('.research-idea [data-bookmark="IREN"]'),null);
+  click('[data-idea-mode="cheap"]');
+  assert.equal(w.document.querySelectorAll('.research-idea').length,0,'No fictitious cheap stocks when criteria fail');
+  const ceiling=q('[data-idea-pref="ceiling"]');ceiling.value='50';ceiling.dispatchEvent(new w.Event('change',{bubbles:true}));
+  assert.equal(w.document.querySelectorAll('.research-idea').length,5);
+  assert.ok(q('.research-thesis').textContent.includes('non è un obiettivo'));
   click('#desktop-nav [data-nav="discover"]');
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(w.document.querySelectorAll('.catalogue-row').length, 2);
@@ -123,6 +136,7 @@ async function main() {
   await new Promise(resolve => setTimeout(resolve, 850));
   assert.equal(cloudSnapshot.journal.length, 1); assert.equal(cloudSnapshot.alerts.length, 1);
   assert.equal(cloudSnapshot.assets['MSFT::XNYS'].mic, 'XNYS');
+  assert.equal(cloudSnapshot.ideaPreferences.ceiling,50);assert.equal(cloudSnapshot.ideaPreferences.mode,'cheap');
   assert.ok(!errors.length, errors.join('\n'));
   console.log('UI checks passed: all pages, timeframe ranking, losers, asset details, notes escaping, watchlist, alerts, scenarios, purchase isolation, journal, filters, cloud payload.');
 }

@@ -4,7 +4,7 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const dist = path.join(root, 'dist');
 fs.mkdirSync(dist, { recursive: true });
-for (const name of ['index.html', 'styles.css', 'polish.css', 'favicon.svg', 'tr-import.js', 'research.js', 'experience.js', 'catalogue.js', 'charts.js', 'app.js']) {
+for (const name of ['index.html', 'styles.css', 'polish.css', 'ideas.css', 'favicon.svg', 'tr-import.js', 'research.js', 'experience.js', 'catalogue.js', 'charts.js', 'ideas.js', 'app.js']) {
   fs.copyFileSync(path.join(root, name), path.join(dist, name));
 }
 fs.copyFileSync(path.join(root, 'node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.js'), path.join(dist, 'chart-library.js'));

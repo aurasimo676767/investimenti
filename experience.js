@@ -25,6 +25,7 @@ function ideasMarkup() {
 function updateMarketViews() {
   if ($('#dashboard-market')) $('#dashboard-market').innerHTML = marketPanel(true);
   if ($('#dashboard-ideas')) $('#dashboard-ideas').innerHTML = ideasMarkup();
+  if ($('#ideas-results')) $('#ideas-results').innerHTML = ideaResults();
   if ($('#radar-market')) $('#radar-market').innerHTML = marketPanel(false);
   if ($('#alert-results')) $('#alert-results').innerHTML = alertsMarkup(false);
 }
