@@ -3,33 +3,38 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f3f4f0" />
+    <meta name="theme-color" content="#080d19" />
     <meta name="description" content="Uno spazio privato per seguire il portafoglio e studiare nuove aziende." />
     <title>Forma — il tuo spazio investimenti</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Vai al contenuto</a>
+    <div class="ambient" aria-hidden="true"><div class="ambient-violet"></div><div class="ambient-blue"></div></div>
     <div class="app-shell">
       <aside class="sidebar" aria-label="Navigazione principale">
-        <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>forma<span class="brand-period">.</span></span></div>
-        <p class="sidebar-caption">Investire con una prospettiva più chiara.</p>
+        <a class="brand" href="#" data-nav="overview" aria-label="Forma, dashboard"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>forma<span class="brand-period">.</span></span></a>
+        <p class="sidebar-caption">Il tuo capitale.<br />Una nuova prospettiva.</p>
+        <div class="nav-label">Il tuo spazio</div>
         <nav id="desktop-nav" class="nav-list"></nav>
         <div class="sidebar-bottom">
-          <div class="private-note"><span class="private-dot"></span><span>Spazio personale<br /><small>I dati restano in questo browser</small></span></div>
+          <div class="sidebar-orbit" aria-hidden="true"><span>f.</span></div>
+          <div class="private-note"><span class="private-dot"></span><span>Spazio privato<br /><small id="sync-state">Connessione al cloud</small></span></div>
           <div class="sidebar-footer">Una decisione alla volta.</div>
         </div>
       </aside>
 
       <div class="main-wrap">
         <header class="topbar">
-          <div class="topbar-left"><span class="mobile-brand">forma<span>.</span></span><span id="breadcrumb">Panoramica</span></div>
+          <div class="topbar-left"><span class="mobile-brand">forma<span>.</span></span><span class="breadcrumb-icon" aria-hidden="true">⌘</span><span id="breadcrumb">Dashboard</span><span class="private-badge">Personale</span></div>
           <div class="topbar-actions">
             <span id="today-label" class="today-label"></span>
             <button id="privacy-toggle" class="icon-button" type="button" aria-label="Nascondi importi" title="Nascondi importi"></button>
-            <button id="open-add" class="top-add" type="button"><span aria-hidden="true">＋</span><span>Aggiungi movimento</span></button>
+            <button id="open-add" class="top-add" type="button" aria-label="Aggiungi movimento"><span aria-hidden="true">＋</span><span>Aggiungi movimento</span></button>
           </div>
         </header>
         <main id="main-content" tabindex="-1"></main>
@@ -40,6 +45,8 @@
     <div id="modal-root"></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="./tr-import.js" defer></script>
+    <script src="./research.js" defer></script>
+    <script src="./experience.js" defer></script>
     <script src="./app.js" defer></script>
   </body>
 </html>

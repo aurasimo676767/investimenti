@@ -1,6 +1,6 @@
 # Forma
 
-Un sito responsive per organizzare un portafoglio di azioni, seguire aziende e importare movimenti da un CSV. I dati personali restano nel browser in cui vengono inseriti.
+Un osservatorio personale per organizzare un portafoglio, confrontare tendenze reali e documentare le proprie decisioni. Interfaccia responsive scura, gradienti indaco/blu, verde e rosso per i movimenti, animazioni con supporto a `prefers-reduced-motion`. I dati personali si sincronizzano tramite Vercel Blob privato e restano disponibili anche in una copia locale.
 
 ## Avvio locale
 
@@ -9,7 +9,7 @@ Apri `index.html` in un browser moderno. Non servono dipendenze o un server per 
 ## Dati
 
 - La prima apertura mostra un portafoglio vuoto; non vengono inseriti dati dimostrativi.
-- Movimenti, prezzi, watchlist e note sono salvati in `localStorage` nel browser corrente. Quando è collegato un archivio Vercel Blob privato, vengono sincronizzati anche tra dispositivi.
+- Movimenti, prezzi, watchlist, note, obiettivi, diario e impostazioni del radar sono salvati in `localStorage` e sincronizzati tra dispositivi tramite lo store privato. Il nuovo design conserva la chiave e il formato dei dati precedenti.
 - In **Impostazioni** puoi esportare e ripristinare un backup JSON. Questo permette anche di portare i dati su un altro dispositivo.
 - Il CSV viene letto localmente. L'esportazione nativa di Trade Republic è riconosciuta automaticamente: vengono importati acquisti e vendite di azioni e fondi, mentre i movimenti di cassa vengono esclusi. Gli ID delle operazioni impediscono i duplicati nei successivi import. Per altri CSV resta disponibile l'abbinamento manuale delle colonne.
 - Trade Republic identifica gli strumenti con l'ISIN. Finché manca un prezzo, la posizione è mostrata al costo e il rendimento è incompleto. Forma non fornisce raccomandazioni di investimento.
@@ -22,8 +22,18 @@ Nel progetto Vercel, apri **Storage → Create Storage → Blob** e crea uno sto
 
 ## Sviluppo
 
-`node --check app.js` controlla la sintassi. `node scripts/logic.cjs` verifica calcoli e importazione. `npm run build` prepara il pacchetto statico per Vercel (cartella `dist`). `node scripts/smoke.cjs` esegue una verifica browser su desktop e telefono usando il Playwright già presente nel workspace.
+`npm run check` verifica sintassi, importazione, rendimento, scenari, API del radar e interazioni dell’interfaccia con un DOM di test. `npm run build` prepara i file statici per Vercel in `dist`. `node scripts/smoke.cjs` esegue un controllo visivo e di overflow su desktop e telefono quando Playwright e Chrome possono essere avviati nell’ambiente. I dati di test restano nei test e non vengono distribuiti.
+
+## Radar e strumenti
+
+- `api/market.js` richiede serie giornaliere a Twelve Data, corrette per gli split. Giorno, settimana e mese confrontano l’ultimo dato con 1, 5 e 21 sedute prima. Prezzi e rendimenti restano nella valuta del titolo; le date sono visibili.
+- La classifica riguarda le aziende monitorate, inizialmente 24, più watchlist e posizioni associate, fino a 40 ticker. Non rappresenta i maggiori rialzi dell’intero mercato. L’endpoint Twelve Data per l’intero mercato richiede Pro e non viene chiamato.
+- Massimo 6 serie per richiesta e almeno 65 secondi tra aggiornamenti. Cache condivisa privata `forma/market-radar-v1.json`, aggiornata per ogni gruppo e conservata un’ora; la quota è applicata anche dal provider. Errori e copertura parziale sono visibili. La scansione iniziale richiede qualche minuto. Il client si ferma quando il sito non è visibile.
+- Le idee escludono i titoli già posseduti e usano una selezione spiegata per momentum a 5 sedute con contesto a 21; senza serie viene mostrata una selezione editoriale dichiarata. Nessuna stima di rendimento futuro o punteggio sintetico.
+- Laboratorio: scenari istantanei su una posizione o sull’intero portafoglio, concentrazione, simulazione di acquisto con commissioni e nuovo costo medio. La simulazione non scrive movimenti.
+- Obiettivi di prezzo verificati sui dati del radar mentre il sito è aperto, senza notifiche push. Diario con tesi, condizione che la smentirebbe e data di revisione.
+- Movimenti: ricerca, filtri acquisto/vendita, commissioni, profitto realizzato al costo medio ponderato e quota di vendite abbinate in profitto. Le vendite senza acquisti sufficienti vengono segnalate; il loro risultato non abbinato è escluso. Calcoli senza imposte, non fiscali.
 
 ## Pubblicazione
 
-Vercel pubblica automaticamente i commit inviati a `main` dal repository GitHub collegato. Il sito distribuito contiene dati dimostrativi; movimenti, prezzi e note reali restano nel `localStorage` del dispositivo. Per limitare anche l'accesso alla pagina occorre attivare la protezione del deployment nelle impostazioni del progetto Vercel.
+Vercel pubblica automaticamente i commit inviati a `main` dal repository GitHub collegato. Usa sempre l’indirizzo stabile `https://investimenti-aurasimo676767s-projects.vercel.app`. Il sito parte vuoto e carica i dati personali dallo store privato. Mantieni la protezione Vercel sulle pagine e sulle API.

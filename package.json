@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build.cjs",
-    "check": "node --check app.js && node --check api/quotes.js && node --check api/state.js && node scripts/logic.cjs"
+    "check": "node --check app.js && node --check experience.js && node --check api/quotes.js && node --check api/state.js && node --check api/market.js && node scripts/logic.cjs && node scripts/research-check.cjs && node scripts/ui-check.cjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
   }
 }
